@@ -1,0 +1,824 @@
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family:'Segoe UI', sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+/*------------------------------------------------------ HEADER -------------------------------------------------------------------------*/
+/* Header styling */
+header {
+  position: fixed;        /* Stick to top */
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #004080;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;          /* Ensures it's on top of everything */
+}
+
+/* Logo */
+.logo a {
+  font-size: 18px;
+  color: white;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+/* Navigation links */
+nav {
+  display: flex;
+  gap: 10px;
+  margin-right: 25px;
+}
+
+nav a {
+  text-decoration: none;
+  color: #81beff;
+  padding: 8px 12px;
+  border-radius: 5px;
+}
+
+nav a:hover {
+  color: #62e7ff;
+  font-size: 105%;
+  transition: 0.4s;
+}
+
+/* Logout button (optional styling) */
+.logout-button {
+  color: #d00;
+  font-weight: bold;
+}
+
+main {
+  margin: 145px auto;
+}
+
+.intro h1 {
+    margin-top: 20px;
+    margin-bottom: 30px;
+    font-size: 2em;
+    text-align: center;
+}
+
+ .intro p {
+  margin-top:20px;
+  margin-bottom: 30px;
+  font-size: 1.5em;
+  text-align: center ;
+ }
+
+.features {
+  margin-top: 60px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.feature-box {
+  display: block;
+  text-align: center;
+  background-color: white;
+  border: 1px solid #ccc;
+  padding: 30px 20px;
+  border-radius: 8px;
+  width: 200px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  text-decoration: none;
+  color: black;
+  transition: background-color 0.3s, transform 0.2s;
+  cursor: pointer;
+}
+
+.feature-box:hover {
+  background-color: rgb(159, 231, 255);
+  transform: scale(1.05);
+}
+
+
+/*-------------------------------------------- LOGIN FORM ----------------------------------------------------------------------------------*/
+
+.logintext {
+    text-align: center;
+    font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+    margin-top: 40px;    
+}
+
+
+.loginform {
+    margin: 70px auto;
+    padding: 35px;
+    text-align: center;
+    width: 360px;
+    flex-direction: column;
+    display: flex;
+    gap: 30px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    background: #fff;
+    border-radius: 10px;
+}
+
+.loginform input {
+    border: none;
+    border-bottom: 2px solid #5298da;
+    outline: none; /* Prevent the browser's default blue outline */
+    padding: 8px;
+    width: 80%;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.loginform input:focus {
+    border-bottom: 2px solid #007BFF; /* Highlight bottom border on focus */
+    outline: none;
+    box-shadow: none; /* In case the browser tries to add a glow */
+}
+
+.loginform button {
+    background-color: rgb(72, 75, 255);
+    width: 70%;
+    border: none;
+    border-radius: 14px;
+    color: white;
+    height: 30px;
+    margin-top: 10px;
+}
+
+.loginform button:hover {
+    background-color: #2b527c;
+    width: 73%;
+    transition: 0.3s;
+}
+
+/*---------------------------------- UPLOAD FORM ----------------------------------------------------------------------*/
+
+.uploads {
+  margin: 70px auto;
+  padding: 40px;
+  text-align: center;
+  width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  border-radius: 10px;
+}
+
+.uploads h2 {
+  margin-bottom: 5px;
+}
+ 
+.upload-form .form-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.upload-form label {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.upload-form input,
+.upload-form select {
+  padding: 8px 10px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 100%;
+}
+
+.upload-form button {
+  background-color: #007BFF;
+  color: white;
+  padding: 10px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 16px;
+}
+
+.upload-form button:hover {
+  background-color: #2b527c;
+  transition: 0.2s;
+}
+
+
+/*---------------------------------------------------- View_Records -------------------------------------------------------------*/
+.scans-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: flex-start;
+  margin: 60px;
+}
+
+.scan-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px;
+  width: 200px;
+  text-align: center;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+}
+
+.scan-image {
+  width: 150px;
+  height: 200px;
+  object-fit: cover;
+  margin: 10px 0;
+}
+
+.h2_view_records {
+    text-align:center;
+}
+
+.btn-view, .btn-delete, .btn-edit {
+  display: inline-block;
+  margin: 5px 5px 0 0;
+  padding: 6px 10px;
+  text-decoration: none;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.btn-edit {
+  background-color: rgb(0, 144, 192);
+  color: white;
+}
+
+.btn-edit:hover {
+  background-color: rgb(106, 157, 173);
+}
+
+.btn-view {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.btn-delete {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn-view:hover {
+    background-color: #356337;
+    transition: 0.3s;
+}
+
+.btn-delete:hover {
+    background-color: #913730;
+    transition: 0.3s;
+}
+
+.pagination {
+  text-align: center;
+  margin-top: 20px;
+}
+.pagination a {
+  margin: 0 10px;
+  padding: 5px 10px;
+  background: #f1f1f1;
+  border: 1px solid #ccc;
+  text-decoration: none;
+  color: #333;
+  border-radius: 4px;
+}
+.pagination span {
+  font-weight: bold;
+}
+
+/*----------------------------------------------------------Search Patient-------------------------------------------------------------------*/
+.search-patient-div {
+  display: flex;
+  flex-direction: column;
+  margin: 70px auto;
+  text-align: center;
+  width: 300px;
+  gap: 15px; 
+}
+
+.search-patient-div input {
+  margin-top: 30px;
+  width: 100%;
+  padding: 10px 12px;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.search-patient-div button {
+  background-color: #007BFF;
+  width: 50%;
+  padding: 6px 8px;
+  margin-top: 20px;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.search-patient-div button:hover {
+    background-color: #2b527c;
+    transition: 0.2s;
+}
+
+
+/*-----------------------------------------------Patient Scans (Pagination) ----------------------------------------------------------------------------*/
+.scans-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+}
+
+.scan-card {
+  width: 220px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fdfdfd;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  text-align: center;
+}
+
+.scan-image {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.pagination {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.pagination a, .pagination span {
+  display: inline-block;
+  padding: 8px 12px;
+  margin: 0 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-decoration: none;
+  background-color: white;
+  color: black;
+}
+
+.pagination a:hover {
+  background-color: #f0f0f0;
+}
+
+/*-----------------------------------------------------------Add-Patient----------------------------------------------------------------------------*/
+.add-patient-div {
+  width: 320px;
+  display:flex;
+  flex-direction: column;
+  margin: 70px auto;
+  margin-top: 85px;
+  gap:15px;
+  padding: 40px 20px;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  font-weight: bold;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.add-patient-div input {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border : 1px solid #ccc;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.add-patient-div select {
+  margin-bottom: 1px;
+  padding: 8px 1px;
+  border : 1px solid #ccc;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.add-patient-div button {
+  cursor: pointer;
+  width: 70%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  color: white;
+  background-color: #007BFF
+}
+
+.add-patient-div button:hover {
+  background-color: #004080;
+  transition:ease-in-out 0.2s; 
+  width: 72.5%;
+}
+
+/*-------------------------------------------------------Patient List Table----------------------------------------------------------*/
+.patient-list {
+  width: 90%;
+  margin: 40px auto;
+  margin-top: 70px;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+#reg-patients {
+  font-size: 1.8rem;
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+/* Search bar */
+.patient-list-form {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+  gap: 10px;
+}
+
+#search-tab {
+  padding: 10px 15px;
+  width: 300px;
+  border: 1px solid #ccc;
+  border-radius: 15px;
+  font-size: 1rem;
+}
+
+#search-btn {
+  padding: 10px 20px;
+  background-color: #1e88e5;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#search-btn:hover {
+  background-color: #1565c0;
+}
+
+/* Table Styling */
+.patient-table {
+  width: 100%;
+  border-collapse: collapse;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  margin-top: 10px;
+}
+
+.patient-table thead {
+  background-color: #f8f8f8;
+}
+
+.patient-table th,
+.patient-table td {
+  text-align: left;
+  padding: 12px 15px;
+  border-bottom: 1px solid #ddd;
+}
+
+.patient-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.patient-table tr:hover {
+  background-color: #e3f2fd;
+}
+
+/* Action Button */
+.icon-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #e53935;
+  transition: transform 0.2s;
+}
+
+.icon-btn:hover {
+  transform: scale(1.2);
+}
+
+
+/*--------------------------------------------------------- Activity Logs -------------------------------------------------------------*/
+.log-table {
+  width: 95%;
+  margin: 30px auto;
+  border-collapse: collapse;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+#act-logs {
+  text-align: center;
+}
+
+.log-table th,
+.log-table td {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+  text-align: center;
+}
+
+.log-table th {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.log-table tr:hover {
+  background-color: #e7f3ff;
+}
+
+
+/*------------------------------------------------------- Footer --------------------------------------------------------------------*/
+footer {
+    background-color: #004080;
+    color: white;
+    text-align: center;
+    padding: 10px;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
+
+ .footer-link {
+  text-transform: none;
+  color: white;
+}
+
+/*------------------------------------------- Mobile responsiveness ----------------------------------------*/
+@media (max-width: 768px) {
+  /* Stack header elements vertically on small screens */
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 16px;
+  }
+
+  nav {
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+    margin: 10px 0 0 0;
+  }
+
+  nav a {
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+
+  main {
+    margin: 120px 16px 40px 16px;
+  }
+
+  .intro h1,
+  .intro p {
+    font-size: 1.2em;
+    padding: 0 10px;
+  }
+
+  .features {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .feature-box {
+    width: 90%;
+    max-width: 300px;
+  }
+}
+
+/* Login Form */
+@media screen and (max-width: 600px) {
+  .loginform {
+    width: 90%; /* Take up more screen width on smaller screens */
+    padding: 25px;
+  }
+
+  .loginform input {
+    width: 100%;
+  }
+
+  .loginform button {
+    width: 100%;
+  }
+
+  .logintext {
+    font-size: 1.2em;
+    margin-top: 20px;
+    padding: 0 10px;
+  }
+}
+
+/* Upload Form */
+@media screen and (max-width: 600px) {
+  .uploads {
+    width: 90%;
+    padding: 25px 15px;
+    margin-top: 30px;
+  }
+
+  .upload-form input,
+  .upload-form select,
+  .upload-form button {
+    font-size: 15px;
+    padding: 10px;
+  }
+
+  .uploads h2 {
+    font-size: 1.4em;
+  }
+}
+
+/* View Records */
+@media screen and (max-width: 600px) {
+  .scans-grid {
+    margin: 20px;
+    justify-content: center; /* Center cards on smaller screens */
+  }
+
+  .scan-card {
+    width: 90%; /* Full width with spacing */
+    max-width: 300px;
+    margin: 0 auto;
+  }
+
+  .scan-image {
+    width: 100%;
+    height: auto;
+  }
+
+  .btn-view, .btn-delete, .btn-edit {
+    font-size: 0.85em;
+    padding: 8px 12px;
+    margin: 5px 3px;
+    width: auto;
+  }
+
+  .h2_view_records {
+    font-size: 1.3em;
+    padding: 0 10px;
+  }
+
+  .pagination a {
+    padding: 6px 8px;
+    font-size: 0.9em;
+  }
+}
+
+/* Search Patient */
+@media screen and (max-width: 480px) {
+  .search-patient-div {
+    width: 90%;
+    padding: 10px;
+  }
+
+  .search-patient-div input {
+    font-size: 15px;
+    padding: 12px;
+  }
+
+  .search-patient-div button {
+    width: 100%;
+    font-size: 15px;
+    padding: 10px;
+  }
+}
+
+/* Patient Scans */
+@media screen and (max-width: 600px) {
+  .scans-grid {
+    justify-content: center;
+    gap: 15px;
+    margin: 0 10px;
+  }
+
+  .scan-card {
+    width: 100%; /* Full width on small screens */
+    max-width: 300px; /* Limit max width for readability */
+    padding: 10px;
+  }
+
+  .scan-image {
+    height: auto; /* Keep aspect ratio */
+  }
+
+  .pagination {
+    margin: 15px 10px;
+  }
+
+  .pagination a, .pagination span {
+    padding: 10px 14px;
+    margin: 0 3px;
+  }
+}
+
+/* Add Patient */
+@media screen and (max-width: 600px) {
+  .add-patient-div {
+    width: 90%;
+    margin: 40px auto 20px auto;
+    padding: 25px 15px;
+    gap: 12px;
+  }
+
+  .add-patient-div input,
+  .add-patient-div select {
+    padding: 10px;
+    font-size: 16px;
+  }
+
+  .add-patient-div button {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+  }
+
+  .add-patient-div button:hover {
+    width: 100%;
+  }
+}
+
+/* Patient List Table */
+@media screen and (max-width: 600px) {
+  .patient-list {
+    width: 95%;
+    margin-top: 50px;
+  }
+
+  .patient-list-form {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #search-tab {
+    width: 90%;
+    font-size: 1rem;
+  }
+
+  #search-btn {
+    width: 90%;
+    padding: 10px;
+    margin-top: 10px;
+  }
+
+  .patient-table th,
+  .patient-table td {
+    padding: 10px 8px;
+    font-size: 14px;
+  }
+
+  .patient-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+
+/* Activity Logs Table & Footer */
+@media screen and (max-width: 600px) {
+  .log-table {
+    width: 100%;
+    font-size: 14px;
+    overflow-x: auto;
+    display: block;
+  }
+
+  .log-table th,
+  .log-table td {
+    padding: 8px;
+  }
+
+  #act-logs {
+    font-size: 1.2rem;
+    margin-top: 10px;
+  }
+
+  footer {
+    font-size: 14px;
+    padding: 8px;
+    position: relative;  /* prevent overlap on small screens */
+  }
+}

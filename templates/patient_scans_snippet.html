@@ -1,0 +1,26 @@
+<h3>{{ patient.name }}'s Uploaded Records</h3>
+
+{% if scans %}
+<div class="scans-grid">
+  {% for scan in scans %}
+    <div class="scan-card">
+      <strong>{{ scan.file_type.upper() }}</strong><br>
+      {{ scan.description or 'No description' }}<br>
+
+      {% set file_url = url_for('static', filename=scan.file_path) %}
+      
+      {% if scan.file_type in ['jpg', 'jpeg', 'png'] %}
+        <img src="{{ file_url }}" alt="Scan" class="scan-image">
+      {% elif scan.file_type == 'pdf' %}
+        <a href="{{ file_url }}" target="_blank">📄 View PDF</a>
+      {% else %}
+        <a href="{{ file_url }}" target="_blank">Download {{ scan.file_type }}</a>
+      {% endif %}
+
+      <p><em>{{ scan.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</em></p>
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+<p>No scans found.</p>
+{% endif %}

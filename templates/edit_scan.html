@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Edit Scan{% endblock %}
+
+{% block body %}
+<h2>Edit Scan</h2>
+
+<form method="POST">
+  <label>Description:</label><br>
+  <input type="text" name="description" value="{{ scan.description }}"><br/><br>
+
+  <label>Reassign to Patient:</label><br>
+  <select name="patient_id">
+    <option value="">-- Select Patient --</option>
+    {% for patient in patients %}
+      <option value="{{ patient.id }}" {% if patient.id == scan.patient_id %}selected{% endif %}>
+        {{ patient.name }} (DOB: {{ patient.dob }})
+      </option>
+    {% endfor %}
+  </select><br/><br>
+
+  <button type="submit">Update</button>
+</form>
+
+<a href="{{ url_for('view_records') }}">← Back to Records</a>
+{% endblock %}

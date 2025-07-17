@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block title %}MCH PACS System{% endblock %}
+
+{% block body %}
+
+<main>
+    <section class="intro">
+        <h1>Welcome to the Patient Records Digitization System</h1>
+        <p>This portal allows authorized medical staff to access patient records</p>
+    </section>
+
+    <section class="features">
+        <a href="{{url_for('upload_scan')}}" class="feature-box"> 📁 Upload Old Records</a>
+        <a href="{{url_for('search_patient')}}" class="feature-box"> 🔍 Search Patient Files</a>
+        <a href="{{url_for('view_images')}}" class="feature-box"> 🖼️ View Archived Images</a>
+        <a href="{{ url_for('list_patients') }}" class="feature-box">📋 Patient List</a>
+    </section>
+
+</main>
+
+{% endblock %}

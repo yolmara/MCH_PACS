@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block head %}
+{% endblock %}
+
+{% block body %}
+<div class="loginform">
+    <form method="POST" action="{{url_for('register')}}">
+        <input name="username" type="text" placeholder="username"><br/>
+
+        <input name="password" type="password" placeholder="password"><br/>
+
+        <button type="submit">Register</button>
+    </form>
+</div>
+
+{% endblock %}

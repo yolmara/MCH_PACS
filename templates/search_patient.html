@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Search Patients{% endblock %}
+
+{% block body %}
+<div class="search-patient-div">
+<h2>Search Patients</h2>
+
+  <form method="POST">
+    <input type="text" name="query" placeholder="enter patient name" value="{{ query }}"><br />
+    <button type="submit">Search</button>
+  </form>
+
+  {% if patients %}
+    <ul>
+      {% for patient in patients %}
+        <li>
+          <strong>{{ patient.name }}</strong><br>
+          Date of Birth: {{ patient.dob }}<br>
+          Sex: {{ patient.sex }}<br>
+          <a href="{{ url_for('patient_records', patient_id=patient.id) }}" target="_blank" class="view-button">View Records</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% elif query %}
+    <p>No patients found for "{{ query }}".</p>
+  {% endif %}
+</div>
+{% endblock %}

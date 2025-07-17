@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}MCH PACS{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+    <div class="logo"><a href="{{url_for('home_page')}}">🏥 Mpilo Central Hospital</a></div>
+    <nav>
+        <a href="/home">Home</a>
+        <a href="{{url_for('add_patient')}}">Add Patient</a>
+        <a href="upload-scans">Upload Record</a>
+        <a href="view-records">View Records</a>
+        <a href="{{ url_for('view_logs') }}">Activity Logs</a>
+        <a href="{{ url_for('logout') }}" class="logout-button">🚪Logout</a>
+    </nav>
+</header>
+    {% block body %}{% endblock %}
+
+</body>
+
+<footer>
+    <p>&copy; PACS @ <a class="footer-link" href="mailto:brandonmasuku911@gmail.com">Coder911</a> | Health @ Mpilo Central Hospital </p>
+</footer>
+</html>

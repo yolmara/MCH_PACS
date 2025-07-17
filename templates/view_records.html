@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}View Records{% endblock %}
+
+{% block body %}
+
+<h2 class="h2_view_records">Uploaded Records</h2>
+
+{% if scans %}
+<div class="scans-grid">
+  {% for scan in scans.items %}
+    <div class="scan-card">
+      <strong>{{ scan.file_type.upper() }}</strong><br>
+      {{ scan.description or 'No description' }}<br>
+
+      {% if scan.file_name %}
+        {% set file_url = url_for('static', filename='uploads/scans/' + scan.file_name) %}
+      {% else %}
+        {% set file_url = '#' %}
+      {% endif %}
+       
+      {% if scan.file_type == 'dcm' %}
+        <img src="{{ url_for('static', filename='uploads/scans/' + scan.file_name.replace('.dcm', '.jpg')) }}" alt="DICOM Preview" height="200">
+        <p><strong>Modality:</strong> {{ scan.modality }}</p>
+        <p><strong>Study Date:</strong> {{ scan.study_date }}</p>
+        <p><strong>Patient Name:</strong> {{ scan.patient_name }}</p>
+      {% endif %}
+
+      {% if scan.file_type in ['jpg', 'jpeg', 'png'] %}
+        <img src="{{url_for('static', filename=scan.file_path)}}" alt="Scan" class="scan-image">
+      {% elif scan.file_type == 'pdf' %}
+        <a href="{{ file_url }}" target="_blank">📄 View PDF</a>
+      {% else %}
+        <a href="{{ file_url }}" target="_blank">Download {{ scan.file_type }}</a>
+      {% endif %}
+
+      <p><em>Uploaded: {{ scan.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</em></p>
+      <!-- View Button -->
+      <a href="{{ file_url }}" target="_blank" class="btn-view">👁️</a>
+
+      <!--Edit Button-->
+      <a href="{{ url_for('edit_scan', scan_id=scan.id) }}" class="btn-edit">✏️</a>
+
+      <!-- Delete Button -->
+      <form action="{{ url_for('delete_scan', scan_id=scan.id) }}" method="POST" style="display:inline;">
+        <button type="submit" class="btn-delete" onclick="return confirm('Are you sure you want to delete this scan?');">🗑️</button>
+      </form>
+    </div>
+  {% endfor %}
+  <div class="pagination">
+    {% if scans.has_prev %}
+    <a href="{{ url_for('view_records', page=scans.prev_num) }}">&laquo; Prev</a>
+    {% endif %}
+
+    <span>Page {{ scans.page }} of {{ scans.pages }}</span>
+
+    {% if scans.has_next %}
+      <a href="{{ url_for('view_records', page=scans.next_num) }}">Next &raquo;</a>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<p>No records found.</p>
+{% endif %}
+{% endblock %}
