@@ -28,6 +28,7 @@ def login_required(f):
 app = Flask(__name__)
 app.config.from_object(Config)
 
+
 # Initialize application
 db.init_app(app)
 migrate = Migrate(app, db)
