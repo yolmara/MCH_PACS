@@ -38,6 +38,9 @@ migrate = Migrate(app, db)
 #def create_tables():
 #    db.create_all()
 
+with app.app_context():
+    db.create_all()
+
 # Home Page Route
 @app.route('/home')
 @login_required
@@ -439,7 +442,4 @@ def logout():
     return redirect(url_for('login'))
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-
     app.run(debug=True)
