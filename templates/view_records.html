@@ -48,14 +48,14 @@
     </div>
   {% endfor %}
   <div class="pagination">
-    {% if scans.has_prev %}
-    <a href="{{ url_for('view_records', page=scans.prev_num) }}">&laquo; Prev</a>
+    {% if pagination.has_prev %}
+      <a href="{{ url_for('view_records', page=pagination.prev_num) }}">Previous</a>
     {% endif %}
 
-    <span>Page {{ scans.page }} of {{ scans.pages }}</span>
+    <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
 
-    {% if scans.has_next %}
-      <a href="{{ url_for('view_records', page=scans.next_num) }}">Next &raquo;</a>
+    {% if pagination.has_next %}
+      <a href="{{ url_for('view_records', page=pagination.next_num) }}">Next</a>
     {% endif %}
   </div>
 </div>
