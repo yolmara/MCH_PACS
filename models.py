@@ -1,13 +1,20 @@
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
-
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 
+
+
 db = SQLAlchemy()
 
+try:
+    # example: db.session.add(new_scan)
+    db.session.commit()
+except Exception as e:
+    db.session.rollback()
+    print("DB Error:", e)
+finally:
+    db.session.close()
 class Patient(db.Model):
     __tablename__ = 'patient'
     id = db.Column(db.Integer, primary_key=True)

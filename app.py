@@ -33,6 +33,11 @@ app.config.from_object(Config)
 db.init_app(app)
 migrate = Migrate(app, db)
 
+# Create Tables upon instance
+@app.before_first_request
+def create_tables():
+    db.create_all()
+
 # Home Page Route
 @app.route('/home')
 @login_required
@@ -405,6 +410,15 @@ def delete_all_scans():
     db.session.commit()
     return "All scan records deleted!"
 
+@app.route('/db-test')
+def db_test():
+    try:
+        # Just a harmless query
+        result = db.session.execute('SELECT 1')
+        return '✅ DB connection successful!'
+    except Exception as e:
+        return f'❌ DB Error: {e}'
+
 # Logout Route
 @app.route('/logout')
 def logout():
@@ -423,12 +437,6 @@ def logout():
 
     flash('Logged out successfully.')
     return redirect(url_for('login'))
-
-# Create Tables upon instance
-@app.before_first_request
-def create_tables():
-    db.create_all()
-
 
 if __name__ == "__main__":
     app.run(debug=True)
