@@ -34,9 +34,9 @@ db.init_app(app)
 migrate = Migrate(app, db)
 
 # Create Tables upon instance
-@app.before_first_request
-def create_tables():
-    db.create_all()
+#@app.before_first_request
+#def create_tables():
+#    db.create_all()
 
 # Home Page Route
 @app.route('/home')
