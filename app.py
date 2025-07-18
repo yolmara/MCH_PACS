@@ -230,28 +230,17 @@ def uploaded_file(filename):
 @login_required
 def view_records():
     page = request.args.get('page', 1, type=int)
-    per_page = 6 
-    pagination = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page)
-    scans = pagination.items
+    per_page = 6
+    scans = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page)
 
-    for scan in scans:
+    for scan in scans.items:
         if scan.file_path:
             scan.filename = os.path.basename(scan.file_path)
         else:
             scan.filename = 'unknown_file'
             app.logger.warning(f'Missing file_path for scan ID: {scan.id}')
 
-    # Optional: Only include valid scans if necessary (check file exists)
-    # You can skip this if all records are needed regardless of existence
-    # valid_scans = [scan for scan in scans if os.path.exists(os.path.join(app.static_folder, scan.file_path))]
-
-#    valid_scans = []
-#    for scan in scans:
-#        file_path = os.path.join(app.static_folder, scan.file_path)
-#        if os.path.exists(file_path):
-#            valid_scans.append(scan)
-
-    return render_template('view_records.html', scans=scans, pagination=pagination)
+    return render_template('view_records.html', scans=scans, pagination=scans)
 
 
 # Patients
