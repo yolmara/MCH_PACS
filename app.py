@@ -232,7 +232,7 @@ def view_records():
     page = request.args.get('page', 1, type=int)
     per_page = 6
     pagination = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page)
-    scans = pagintation.items
+    scans = pagination.items
 
     for scan in scans.items:
         if scan.file_path:
