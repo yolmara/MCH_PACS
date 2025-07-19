@@ -130,10 +130,10 @@ def upload_scan():
         ds = pydicom.dcmread(dicom_path)
         pixel_array = ds.pixel_array
 
-        # Normalize the 16-bit data to 8-bit
         pixel_array = pixel_array.astype(float)
         pixel_array -= pixel_array.min()
-        pixel_array /= pixel_array.max()
+        if pixel_array.max() > 0:
+            pixel_array /= pixel_array.max()
         pixel_array *= 255.0
         pixel_array = pixel_array.astype('uint8')
 
@@ -163,27 +163,23 @@ def upload_scan():
         if file and allowed_file(file.filename):
             os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-            # Normalize file name to lowercase
             filename = secure_filename(file.filename).lower()
-
-            # Save to absolute path
             absolute_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
             file.save(absolute_path)
 
-            # If it's a DICOM file
-            if filename.endswith('.dcm') and is_dicom(absolute_path):
+            file_ext = filename.rsplit('.', 1)[1].lower()
+
+            if file_ext == 'dcm' and is_dicom(absolute_path):
                 ds = pydicom.dcmread(absolute_path)
                 dicom_metadata['modality'] = getattr(ds, 'Modality', 'N/A')
                 dicom_metadata['study_date'] = getattr(ds, 'StudyDate', 'N/A')
                 dicom_metadata['patient_name'] = str(getattr(ds, 'PatientName', 'N/A'))
 
-                # Convert to JPEG preview
+                # Convert to JPEG
                 jpeg_preview_name = filename.rsplit('.', 1)[0] + '.jpg'
                 jpeg_output_path = os.path.join(app.config['UPLOAD_FOLDER'], jpeg_preview_name)
                 convert_dicom_to_jpeg(absolute_path, jpeg_output_path)
 
-                # Store relative path (for use in HTML src)
                 relative_path = os.path.join('uploads', 'scans', jpeg_preview_name).replace("\\", "/")
             else:
                 relative_path = os.path.join('uploads', 'scans', filename).replace("\\", "/")
@@ -191,33 +187,21 @@ def upload_scan():
             new_scan = Scan(
                 file_name=filename,
                 file_path=relative_path,
-                file_type=filename.rsplit('.', 1)[1].lower(),
+                file_type=file_ext,
                 description=description,
                 patient_id=patient_id,
                 modality=dicom_metadata['modality'],
                 study_date=dicom_metadata['study_date'],
                 patient_name=dicom_metadata['patient_name']
             )
-
             db.session.add(new_scan)
-
-            log = ActivityLog(
-                action='Upload',
-                description=f'Uploaded scan: {filename}',
-                user=session.get('username', 'Unknown')
-            )
-            db.session.add(log)
             db.session.commit()
 
-            flash('Scan uploaded successfully!')
-            return redirect(url_for('upload_scan'))
+            flash('Scan uploaded successfully')
+            return redirect(url_for('view_records'))
 
-        else:
-            flash('File type not allowed')
-            return redirect(request.url)
+    return render_template('upload_scan.html')
 
-    patients = Patient.query.all()
-    return render_template('upload_scans.html', patients=patients)
 
 
 # Uploaded Files
