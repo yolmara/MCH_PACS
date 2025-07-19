@@ -234,7 +234,7 @@ def view_records():
     pagination = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page)
     scans = pagination.items
 
-    for scan in scans.items():
+    for scan in scans:
         if scan.file_path:
             scan.filename = os.path.basename(scan.file_path)
         else:
@@ -242,7 +242,6 @@ def view_records():
             app.logger.warning(f'Missing file_path for scan ID: {scan.id}')
 
     return render_template('view_records.html', scans=scans, pagination=pagination)
-
 
 # Patients
 @app.route('/add-patient', methods=['GET','POST'])
