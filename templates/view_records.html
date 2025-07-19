@@ -13,14 +13,14 @@
       <strong>{{ scan.file_type.upper() }}</strong><br>
       {{ scan.description or 'No description' }}<br>
 
-      {% if scan.file_name %}
-        {% set file_url = url_for('static', filename='uploads/scans/' + scan.file_name) %}
+      {% if scan.filename %}
+        {% set file_url = url_for('static', filename='uploads/scans/' + scan.filename) %}
       {% else %}
         {% set file_url = '#' %}
       {% endif %}
        
       {% if scan.file_type == 'dcm' %}
-        <img src="{{ url_for('static', filename='uploads/scans/' + scan.file_name.replace('.dcm', '.jpg')) }}" alt="DICOM Preview" height="200">
+        <img src="{{ url_for('static', filename='uploads/scans/' + scan.filename.replace('.dcm', '.jpg')) }}" alt="DICOM Preview" height="200">
         <p><strong>Modality:</strong> {{ scan.modality }}</p>
         <p><strong>Study Date:</strong> {{ scan.study_date }}</p>
         <p><strong>Patient Name:</strong> {{ scan.patient_name }}</p>

@@ -183,8 +183,10 @@ def upload_scan():
                 jpeg_output_path = os.path.join(app.config['UPLOAD_FOLDER'], jpeg_preview_name)
                 convert_dicom_to_jpeg(absolute_path, jpeg_output_path)
 
-            # Store relative path (for use in HTML src)
-            relative_path = os.path.join('uploads', 'scans', filename).replace("\\", "/")
+                # Store relative path (for use in HTML src)
+                relative_path = os.path.join('uploads', 'scans', jpeg_preview_name).replace("\\", "/")
+            else:
+                relative_path = os.path.join('uploads', 'scans', filename).replace("\\", "/")
 
             new_scan = Scan(
                 file_name=filename,
