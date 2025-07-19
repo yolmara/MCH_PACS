@@ -26,12 +26,12 @@
         <p><strong>Patient Name:</strong> {{ scan.patient_name }}</p>
       {% endif %}
 
-      {% if scan.file_type in ['jpg', 'jpeg', 'png'] %}
-        <img src="{{url_for('static', filename=scan.file_path)}}" alt="Scan" class="scan-image">
+      {% if scan.file_type == 'jpg' or scan.file_type == 'jpeg' or scan.file_type == 'png' %}
+        <img src="{{ url_for('static', filename=scan.file_path) }}" alt="{{ scan.file_name }}" width="300">
       {% elif scan.file_type == 'pdf' %}
-        <a href="{{ file_url }}" target="_blank">📄 View PDF</a>
+        <a href="{{ url_for('static', filename=scan.file_path) }}" target="_blank">View PDF</>
       {% else %}
-        <a href="{{ file_url }}" target="_blank">Download {{ scan.file_type }}</a>
+        <p>No preview available ({{ scan.file_type.upper() }})</p>
       {% endif %}
 
       <p><em>Uploaded: {{ scan.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</em></p>
