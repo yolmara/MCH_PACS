@@ -231,7 +231,8 @@ def uploaded_file(filename):
 def view_records():
     page = request.args.get('page', 1, type=int)
     per_page = 6
-    scans = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page)
+    pagination = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page)
+    scans = pagintation.items
 
     for scan in scans.items:
         if scan.file_path:
@@ -240,7 +241,7 @@ def view_records():
             scan.filename = 'unknown_file'
             app.logger.warning(f'Missing file_path for scan ID: {scan.id}')
 
-    return render_template('view_records.html', scans=scans, pagination=scans)
+    return render_template('view_records.html', scans=scans, pagination=pagination)
 
 
 # Patients
