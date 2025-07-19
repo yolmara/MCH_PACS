@@ -234,7 +234,7 @@ def view_records():
     pagination = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page)
     scans = pagination.items
 
-    for scan in scans.items:
+    for scan in scans.items():
         if scan.file_path:
             scan.filename = os.path.basename(scan.file_path)
         else:
