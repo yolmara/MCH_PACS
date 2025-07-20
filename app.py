@@ -126,19 +126,13 @@ def upload_scan():
         except:
             return False
 
-    def convert_dicom_to_jpeg(dicom_path, output_path):
+    def convert_dicom_to_jpeg(dicom_path, jpeg_path):
         ds = pydicom.dcmread(dicom_path)
-        pixel_array = ds.pixel_array
-
-        pixel_array = pixel_array.astype(float)
-        pixel_array -= pixel_array.min()
-        if pixel_array.max() > 0:
-            pixel_array /= pixel_array.max()
-        pixel_array *= 255.0
-        pixel_array = pixel_array.astype('uint8')
-
-        image = Image.fromarray(pixel_array)
-        image.save(output_path)
+        if 'PixelData' in ds:
+            pixel_array = ds.pixel_array
+            image = Image.fromarray(pixel_array)
+            image = image.convert('L')  # or 'RGB' depending on the pixel data
+            image.save(jpeg_path)
 
     dicom_metadata = {
         'modality': None,
@@ -223,9 +217,9 @@ def view_records():
     for scan in scans:
         if scan.file_path:
             scan.filename = os.path.basename(scan.file_path)
-        else:
-            scan.filename = 'unknown_file'
-            app.logger.warning(f'Missing file_path for scan ID: {scan.id}')
+            if scan.filename.endswith('.dcm'):
+                jpg_preview = scan.filename.replace('.dcm', '.jpg')
+                scan.jpg_preview = jpg_preview
 
     return render_template('view_records.html', scans=scans, pagination=pagination)
 
