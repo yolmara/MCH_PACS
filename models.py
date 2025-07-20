@@ -21,6 +21,7 @@ class Scan(db.Model):
     file_path = db.Column(db.String(255), nullable=False)
     file_type = db.Column(db.String(20), nullable=False)
     description = db.Column(db.String(255), nullable=True)
+    jpeg_preview_url = db.Column(db.String(300), nullable=True)
     modality = db.Column(db.String(50))
     study_date = db.Column(db.String(20))
     patient_name = db.Column(db.String(100))

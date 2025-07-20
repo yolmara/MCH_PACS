@@ -13,6 +13,7 @@ from models import db, Patient, User, Scan, ActivityLog  # <-- import your db he
 import pydicom
 from PIL import Image
 import numpy as np
+from pyuploadcare import Uploadcare
 
 #Login required helper
 def login_required(f):
@@ -28,6 +29,10 @@ def login_required(f):
 app = Flask(__name__)
 app.config.from_object(Config)
 
+uc = Uploadcare(
+    public_key=app.config['UPLOADCARE_PUBLIC_KEY'],
+    secret_key=app.config['UPLOADCARE_SECRET_KEY']
+)
 
 # Initialize application
 db.init_app(app)
@@ -155,57 +160,71 @@ def upload_scan():
         description = request.form.get('description')
         patient_id = request.form.get('patient_id')
 
-        if not file or file.filename == '':
-            flash('No file selected')
-            return redirect(request.url)
+    if not file or file.filename == '':
+        flash('No file selected')
+        return redirect(request.url)
 
-        if not allowed_file(file.filename):
-            flash('File type not allowed')
-            return redirect(request.url)
+    if not allowed_file(file.filename):
+        flash('File type not allowed')
+        return redirect(request.url)
 
-        try:
-            patient_id = int(patient_id) if patient_id else None
-        except ValueError:
-            flash('Invalid patient ID')
-            return redirect(request.url)
+    try:
+        patient_id = int(patient_id) if patient_id else None
+    except ValueError:
+        flash('Invalid patient ID')
+        return redirect(request.url)
 
-        # Normalize filename
-        filename = secure_filename(file.filename.lower())
-        absolute_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(absolute_path)
-        file_ext = filename.rsplit('.', 1)[1].lower()
+    # Normalize filename
+    filename = secure_filename(file.filename.lower())
+    absolute_path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(absolute_path)
+    file_ext = filename.rsplit('.', 1)[1].lower()
 
-        # Prepare relative path for database
-        relative_path = os.path.join('uploads', 'scans', filename).replace("\\", "/")
+    dicom_url = None
+    jpeg_url = None
 
-        # DICOM specific: read metadata and convert preview
-        if file_ext == 'dcm' and is_dicom(absolute_path):
-            ds = pydicom.dcmread(absolute_path)
-            dicom_metadata['modality'] = getattr(ds, 'Modality', 'N/A')
-            dicom_metadata['study_date'] = getattr(ds, 'StudyDate', 'N/A')
-            dicom_metadata['patient_name'] = str(getattr(ds, 'PatientName', 'N/A'))
+    # Upload DICOM to Uploadcare
+    with open(absolute_path, 'rb') as f:
+        dicom_file = uploadcare.upload(f)
+        dicom_url = dicom_file.cdn_url
 
-            # Save JPEG preview
-            jpeg_name = filename.replace('.dcm', '.jpg')
-            jpeg_path = os.path.join(UPLOAD_FOLDER, jpeg_name)
-            convert_dicom_to_jpeg(absolute_path, jpeg_path)
+    # DICOM specific logic
+    modality = study_date = patient_name = 'N/A'
 
-        # Save record to DB
-        new_scan = Scan(
-            file_name=filename,
-            file_path=relative_path,
-            file_type=file_ext,
-            description=description,
-            patient_id=patient_id,
-            modality=dicom_metadata['modality'],
-            study_date=dicom_metadata['study_date'],
-            patient_name=dicom_metadata['patient_name']
-        )
-        db.session.add(new_scan)
-        db.session.commit()
+    if file_ext == 'dcm' and is_dicom(absolute_path):
+        ds = pydicom.dcmread(absolute_path)
+        modality = getattr(ds, 'Modality', 'N/A')
+        study_date = getattr(ds, 'StudyDate', 'N/A')
+        patient_name = str(getattr(ds, 'PatientName', 'N/A'))
 
-        flash('Scan uploaded successfully')
-        return redirect(url_for('view_records'))
+        # Convert to JPEG locally
+        jpeg_name = filename.replace('.dcm', '.jpg')
+        jpeg_path = os.path.join(UPLOAD_FOLDER, jpeg_name)
+        convert_dicom_to_jpeg(absolute_path, jpeg_path)
+
+        # Upload JPEG to Uploadcare
+        with open(jpeg_path, 'rb') as jpeg_file:
+            jpeg_uploaded = uploadcare.upload(jpeg_file)
+            jpeg_url = jpeg_uploaded.cdn_url
+
+    # Save to DB
+    new_scan = Scan(
+        file_name=filename,
+        file_type=file_ext,
+        file_path=dicom_url,           # points to Uploadcare DICOM
+        jpeg_preview_url=jpeg_url,     # Uploadcare JPEG URL
+        description=description,
+        patient_id=patient_id,
+        modality=modality,
+        study_date=study_date,
+        patient_name=patient_name
+    )
+
+    db.session.add(new_scan)
+    db.session.commit()
+
+    flash('Scan uploaded successfully')
+    return redirect(url_for('view_records'))
 
     # GET request
     patients = Patient.query.all()
