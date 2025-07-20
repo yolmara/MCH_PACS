@@ -60,7 +60,7 @@ python-dateutil==2.8.2
 python-dotenv==1.1.1
 pytz==2025.2
 pyuploadcare==6.2.0
-pywin32==306
+pywin32==306; sys_platform == "win32"
 pyzmq==26.0.3
 seaborn==0.13.0
 six==1.16.0
