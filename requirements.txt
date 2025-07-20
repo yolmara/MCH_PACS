@@ -1,4 +1,4 @@
-setuptools>=42
+setuptools>=65
 wheel
 alembic==1.16.4
 annotated-types==0.7.0
