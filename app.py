@@ -209,7 +209,7 @@ def upload_scan():
 
     # GET request
     patients = Patient.query.all()
-    return render_template('upload_scan.html', patients=Patient.query.all())
+    return render_template('upload_scans.html', patients=Patient.query.all())
 
 
 
