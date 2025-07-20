@@ -109,7 +109,7 @@ def login():
 
 
 # Upload Route
-@app.route('/upload-scans', methods=['GET', 'POST'])
+@app.route('/upload-scan', methods=['GET', 'POST'])
 @login_required
 def upload_scan():
     # Define upload destination
@@ -138,11 +138,12 @@ def upload_scan():
             if 'PixelData' in ds:
                 pixel_array = ds.pixel_array
                 image = Image.fromarray(pixel_array)
-                image = image.convert('L')  # Convert to grayscale
+                image = image.convert('L')  # grayscale
                 image.save(jpeg_path)
         except Exception as e:
             print("DICOM to JPEG conversion error:", e)
 
+    # Metadata container
     dicom_metadata = {
         'modality': None,
         'study_date': None,
@@ -168,29 +169,28 @@ def upload_scan():
             flash('Invalid patient ID')
             return redirect(request.url)
 
-        # Save original file
+        # Normalize filename
         filename = secure_filename(file.filename.lower())
         absolute_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(absolute_path)
-
         file_ext = filename.rsplit('.', 1)[1].lower()
 
-        # If it's DICOM, extract metadata and generate preview
+        # Prepare relative path for database
+        relative_path = os.path.join('uploads', 'scans', filename).replace("\\", "/")
+
+        # DICOM specific: read metadata and convert preview
         if file_ext == 'dcm' and is_dicom(absolute_path):
             ds = pydicom.dcmread(absolute_path)
             dicom_metadata['modality'] = getattr(ds, 'Modality', 'N/A')
             dicom_metadata['study_date'] = getattr(ds, 'StudyDate', 'N/A')
             dicom_metadata['patient_name'] = str(getattr(ds, 'PatientName', 'N/A'))
 
-            jpeg_name = filename.rsplit('.', 1)[0] + '.jpg'
+            # Save JPEG preview
+            jpeg_name = filename.replace('.dcm', '.jpg')
             jpeg_path = os.path.join(UPLOAD_FOLDER, jpeg_name)
             convert_dicom_to_jpeg(absolute_path, jpeg_path)
 
-            relative_path = os.path.join('uploads', 'scans', jpeg_name).replace("\\", "/")
-        else:
-            relative_path = os.path.join('uploads', 'scans', filename).replace("\\", "/")
-
-        # Save to database
+        # Save record to DB
         new_scan = Scan(
             file_name=filename,
             file_path=relative_path,
@@ -209,9 +209,7 @@ def upload_scan():
 
     # GET request
     patients = Patient.query.all()
-    return render_template('upload_scans.html', patients=Patient.query.all())
-
-
+    return render_template('upload_scans.html', patients=patients)
 
 
 # Uploaded Files
