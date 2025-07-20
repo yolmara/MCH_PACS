@@ -6,7 +6,7 @@
 
 {% if scans %}
   <div class="scans-grid">
-    {% for scan in scans.items %}
+    {% for scan in scans %}
       <div class="scan-card">
         <strong>{{ scan.file_type.upper() }}</strong><br>
         {{ scan.description or 'No description' }}<br>
