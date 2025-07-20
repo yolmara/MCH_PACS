@@ -227,15 +227,14 @@ def uploaded_file(filename):
 def view_records():
     page = request.args.get('page', 1, type=int)
     per_page = 6
-    pagination = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page)
+    pagination = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     scans = pagination.items
 
     for scan in scans:
         if scan.file_path:
             scan.filename = os.path.basename(scan.file_path)
             if scan.filename.endswith('.dcm'):
-                jpg_preview = scan.filename.replace('.dcm', '.jpg')
-                scan.jpg_preview = jpg_preview
+                scan.jpg_preview = scan.filename.replace('.dcm', '.jpg')
 
     return render_template('view_records.html', scans=scans, pagination=pagination)
 
@@ -430,6 +429,11 @@ def logout():
 
     flash('Logged out successfully.')
     return redirect(url_for('login'))
+
+
+@app.route('/scan-check-confirm')
+def scan_confirm():
+    print("Scans retrieved:", [scan.id for scan in scans])
 
 if __name__ == "__main__":
     app.run(debug=True)
