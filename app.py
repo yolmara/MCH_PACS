@@ -112,10 +112,15 @@ def login():
 @app.route('/upload-scans', methods=['GET', 'POST'])
 @login_required
 def upload_scan():
+    # Define upload destination
     UPLOAD_FOLDER = os.path.join(app.static_folder, 'uploads', 'scans')
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpeg', 'jpg', 'dcm', 'tiff'}
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+    # Ensure the upload folder exists
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+    # Utility functions
     def allowed_file(filename):
         return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -123,16 +128,20 @@ def upload_scan():
         try:
             ds = pydicom.dcmread(file_path)
             return True
-        except:
+        except Exception as e:
+            print("Not a valid DICOM:", e)
             return False
 
     def convert_dicom_to_jpeg(dicom_path, jpeg_path):
-        ds = pydicom.dcmread(dicom_path)
-        if 'PixelData' in ds:
-            pixel_array = ds.pixel_array
-            image = Image.fromarray(pixel_array)
-            image = image.convert('L')  # or 'RGB' depending on the pixel data
-            image.save(jpeg_path)
+        try:
+            ds = pydicom.dcmread(dicom_path)
+            if 'PixelData' in ds:
+                pixel_array = ds.pixel_array
+                image = Image.fromarray(pixel_array)
+                image = image.convert('L')  # Convert to grayscale
+                image.save(jpeg_path)
+        except Exception as e:
+            print("DICOM to JPEG conversion error:", e)
 
     dicom_metadata = {
         'modality': None,
@@ -141,60 +150,67 @@ def upload_scan():
     }
 
     if request.method == 'POST':
-        if 'file' not in request.files:
-            flash('No file part')
-            return redirect(request.url)
-
-        file = request.files['file']
+        file = request.files.get('file')
         description = request.form.get('description')
         patient_id = request.form.get('patient_id')
-        patient_id = int(patient_id) if patient_id else None
 
-        if file.filename == '':
-            flash('No selected file')
+        if not file or file.filename == '':
+            flash('No file selected')
             return redirect(request.url)
 
-        if file and allowed_file(file.filename):
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        if not allowed_file(file.filename):
+            flash('File type not allowed')
+            return redirect(request.url)
 
-            filename = secure_filename(file.filename).lower()
-            absolute_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(absolute_path)
+        try:
+            patient_id = int(patient_id) if patient_id else None
+        except ValueError:
+            flash('Invalid patient ID')
+            return redirect(request.url)
 
-            file_ext = filename.rsplit('.', 1)[1].lower()
+        # Save original file
+        filename = secure_filename(file.filename.lower())
+        absolute_path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(absolute_path)
 
-            if file_ext == 'dcm' and is_dicom(absolute_path):
-                ds = pydicom.dcmread(absolute_path)
-                dicom_metadata['modality'] = getattr(ds, 'Modality', 'N/A')
-                dicom_metadata['study_date'] = getattr(ds, 'StudyDate', 'N/A')
-                dicom_metadata['patient_name'] = str(getattr(ds, 'PatientName', 'N/A'))
+        file_ext = filename.rsplit('.', 1)[1].lower()
 
-                # Convert to JPEG
-                jpeg_preview_name = filename.rsplit('.', 1)[0] + '.jpg'
-                jpeg_output_path = os.path.join(app.config['UPLOAD_FOLDER'], jpeg_preview_name)
-                convert_dicom_to_jpeg(absolute_path, jpeg_output_path)
+        # If it's DICOM, extract metadata and generate preview
+        if file_ext == 'dcm' and is_dicom(absolute_path):
+            ds = pydicom.dcmread(absolute_path)
+            dicom_metadata['modality'] = getattr(ds, 'Modality', 'N/A')
+            dicom_metadata['study_date'] = getattr(ds, 'StudyDate', 'N/A')
+            dicom_metadata['patient_name'] = str(getattr(ds, 'PatientName', 'N/A'))
 
-                relative_path = os.path.join('uploads', 'scans', jpeg_preview_name).replace("\\", "/")
-            else:
-                relative_path = os.path.join('uploads', 'scans', filename).replace("\\", "/")
+            jpeg_name = filename.rsplit('.', 1)[0] + '.jpg'
+            jpeg_path = os.path.join(UPLOAD_FOLDER, jpeg_name)
+            convert_dicom_to_jpeg(absolute_path, jpeg_path)
 
-            new_scan = Scan(
-                file_name=filename,
-                file_path=relative_path,
-                file_type=file_ext,
-                description=description,
-                patient_id=patient_id,
-                modality=dicom_metadata['modality'],
-                study_date=dicom_metadata['study_date'],
-                patient_name=dicom_metadata['patient_name']
-            )
-            db.session.add(new_scan)
-            db.session.commit()
+            relative_path = os.path.join('uploads', 'scans', jpeg_name).replace("\\", "/")
+        else:
+            relative_path = os.path.join('uploads', 'scans', filename).replace("\\", "/")
 
-            flash('Scan uploaded successfully')
-            return redirect(url_for('view_records'))
+        # Save to database
+        new_scan = Scan(
+            file_name=filename,
+            file_path=relative_path,
+            file_type=file_ext,
+            description=description,
+            patient_id=patient_id,
+            modality=dicom_metadata['modality'],
+            study_date=dicom_metadata['study_date'],
+            patient_name=dicom_metadata['patient_name']
+        )
+        db.session.add(new_scan)
+        db.session.commit()
 
-    return render_template('upload_scan.html')
+        flash('Scan uploaded successfully')
+        return redirect(url_for('view_records'))
+
+    # GET request
+    patients = Patient.query.all()
+    return render_template('upload_scan.html', patients=patients)
+
 
 
 
