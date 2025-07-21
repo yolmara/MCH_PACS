@@ -1,0 +1,48 @@
+{% if value %}
+    <script>
+        window.addEventListener('DOMContentLoaded', (e) => {
+            const uploaderCtx = document.querySelector('#uploaderctx_{{ name }}');
+            {% if options.multiple == "true" %}
+                {# FileGroup #}
+                {% for file in value %}
+                    uploaderCtx.addFileFromCdnUrl("{{ file.cdn_url }}")
+                {% endfor %}
+            {% else %}
+                {# File #}
+                uploaderCtx.addFileFromCdnUrl("{{ value.cdn_url }}")
+            {% endif %}
+        });
+    </script>
+{% endif %}
+
+<div style="position: relative; display: flex;">
+    <link rel="stylesheet" href="{{ uploadcare_css }}" >
+
+    <script type="module">
+        import * as UC from "{{ uploadcare_js }}";
+        UC.defineComponents(UC);
+    </script>
+
+    <uc-config
+        ctx-name="{{ name }}"
+        pubkey="{{ pub_key }}"
+        {% for k, v in options.items %}
+        {{ k|escape }}="{{ v|escape }}"{% endfor %}
+    ></uc-config>
+
+    <uc-upload-ctx-provider
+        id="uploaderctx_{{ name }}"
+        ctx-name="{{ name }}"
+    ></uc-upload-ctx-provider>
+
+    <uc-file-uploader-{{ variant }}
+        ctx-name="{{ name }}"
+    >
+        <uc-form-input
+            ctx-name="{{ name }}"
+        ></uc-form-input>
+    </uc-file-uploader-{{ variant }}>
+
+
+</div>
+

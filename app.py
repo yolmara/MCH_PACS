@@ -14,6 +14,9 @@ import pydicom
 from PIL import Image
 import numpy as np
 from pyuploadcare import Uploadcare
+from dotenv import load_dotenv
+load_dotenv()
+
 
 #Login required helper
 def login_required(f):
@@ -29,14 +32,15 @@ def login_required(f):
 app = Flask(__name__)
 app.config.from_object(Config)
 
-uc = Uploadcare(
+# Initialize application
+db.init_app(app)
+migrate = Migrate(app, db)
+
+uploadcare = Uploadcare(
     public_key=app.config['UPLOADCARE_PUBLIC_KEY'],
     secret_key=app.config['UPLOADCARE_SECRET_KEY']
 )
 
-# Initialize application
-db.init_app(app)
-migrate = Migrate(app, db)
 
 # Create Tables upon instance
 #@app.before_first_request
@@ -114,18 +118,15 @@ def login():
 
 
 # Upload Route
-@app.route('/upload-scan', methods=['GET', 'POST'])
+@app.route('/upload_scan', methods=['GET', 'POST'])
 @login_required
 def upload_scan():
-    # Define upload destination
+    # Upload setup
     UPLOAD_FOLDER = os.path.join(app.static_folder, 'uploads', 'scans')
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpeg', 'jpg', 'dcm', 'tiff'}
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-    # Ensure the upload folder exists
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-    # Utility functions
     def allowed_file(filename):
         return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -143,92 +144,82 @@ def upload_scan():
             if 'PixelData' in ds:
                 pixel_array = ds.pixel_array
                 image = Image.fromarray(pixel_array)
-                image = image.convert('L')  # grayscale
+                image = image.convert('L')
                 image.save(jpeg_path)
         except Exception as e:
             print("DICOM to JPEG conversion error:", e)
 
-    # Metadata container
-    dicom_metadata = {
-        'modality': None,
-        'study_date': None,
-        'patient_name': None
-    }
-
     if request.method == 'POST':
-        file = request.files.get('file')
+        if 'file' not in request.files:
+            flash('No file part in the request', 'danger')
+            return redirect(request.url)
+
+        file = request.files['file']
         description = request.form.get('description')
         patient_id = request.form.get('patient_id')
 
-    if not file or file.filename == '':
-        flash('No file selected')
-        return redirect(request.url)
+        if file.filename == '':
+            flash('No file selected for uploading', 'danger')
+            return redirect(request.url)
 
-    if not allowed_file(file.filename):
-        flash('File type not allowed')
-        return redirect(request.url)
+        try:
+            patient_id = int(patient_id) if patient_id else None
+        except ValueError:
+            flash('Invalid patient ID')
+            return redirect(request.url)
 
-    try:
-        patient_id = int(patient_id) if patient_id else None
-    except ValueError:
-        flash('Invalid patient ID')
-        return redirect(request.url)
+        filename = secure_filename(file.filename.lower())
+        absolute_path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(absolute_path)
+        file_ext = filename.rsplit('.', 1)[1].lower()
 
-    # Normalize filename
-    filename = secure_filename(file.filename.lower())
-    absolute_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(absolute_path)
-    file_ext = filename.rsplit('.', 1)[1].lower()
+        dicom_url = None
+        jpeg_url = None
 
-    dicom_url = None
-    jpeg_url = None
+        # Upload original file to Uploadcare
+        with open(absolute_path, 'rb') as f:
+            dicom_file = uploadcare.upload(f)
+            dicom_url = dicom_file.cdn_url
 
-    # Upload DICOM to Uploadcare
-    with open(absolute_path, 'rb') as f:
-        dicom_file = uploadcare.upload(f)
-        dicom_url = dicom_file.cdn_url
+        modality = study_date = patient_name = 'N/A'
 
-    # DICOM specific logic
-    modality = study_date = patient_name = 'N/A'
+        if file_ext == 'dcm' and is_dicom(absolute_path):
+            ds = pydicom.dcmread(absolute_path)
+            modality = getattr(ds, 'Modality', 'N/A')
+            study_date = getattr(ds, 'StudyDate', 'N/A')
+            patient_name = str(getattr(ds, 'PatientName', 'N/A'))
 
-    if file_ext == 'dcm' and is_dicom(absolute_path):
-        ds = pydicom.dcmread(absolute_path)
-        modality = getattr(ds, 'Modality', 'N/A')
-        study_date = getattr(ds, 'StudyDate', 'N/A')
-        patient_name = str(getattr(ds, 'PatientName', 'N/A'))
+            # Convert and upload JPEG
+            jpeg_name = filename.replace('.dcm', '.jpg')
+            jpeg_path = os.path.join(UPLOAD_FOLDER, jpeg_name)
+            convert_dicom_to_jpeg(absolute_path, jpeg_path)
 
-        # Convert to JPEG locally
-        jpeg_name = filename.replace('.dcm', '.jpg')
-        jpeg_path = os.path.join(UPLOAD_FOLDER, jpeg_name)
-        convert_dicom_to_jpeg(absolute_path, jpeg_path)
+            with open(jpeg_path, 'rb') as jpeg_file:
+                jpeg_uploaded = uploadcare.upload(jpeg_file)
+                jpeg_url = jpeg_uploaded.cdn_url
 
-        # Upload JPEG to Uploadcare
-        with open(jpeg_path, 'rb') as jpeg_file:
-            jpeg_uploaded = uploadcare.upload(jpeg_file)
-            jpeg_url = jpeg_uploaded.cdn_url
+        # Save record
+        new_scan = Scan(
+            file_name=filename,
+            file_type=file_ext,
+            file_path=dicom_url,
+            jpeg_preview_url=jpeg_url,
+            description=description,
+            patient_id=patient_id,
+            modality=modality,
+            study_date=study_date,
+            patient_name=patient_name
+        )
+        db.session.add(new_scan)
+        db.session.commit()
 
-    # Save to DB
-    new_scan = Scan(
-        file_name=filename,
-        file_type=file_ext,
-        file_path=dicom_url,           # points to Uploadcare DICOM
-        jpeg_preview_url=jpeg_url,     # Uploadcare JPEG URL
-        description=description,
-        patient_id=patient_id,
-        modality=modality,
-        study_date=study_date,
-        patient_name=patient_name
-    )
+        flash('Scan uploaded successfully')
+        return redirect(url_for('view_records'))
 
-    db.session.add(new_scan)
-    db.session.commit()
-
-    flash('Scan uploaded successfully')
-    return redirect(url_for('view_records'))
-
-    # GET request
+    # For GET
     patients = Patient.query.all()
     return render_template('upload_scans.html', patients=patients)
+
 
 
 # Uploaded Files
@@ -446,11 +437,6 @@ def logout():
 
     flash('Logged out successfully.')
     return redirect(url_for('login'))
-
-
-@app.route('/scan-check-confirm')
-def scan_confirm():
-    print("Scans retrieved:", [scan.id for scan in scans])
 
 if __name__ == "__main__":
     app.run(debug=True)
