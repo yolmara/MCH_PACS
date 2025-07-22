@@ -18,7 +18,7 @@
       {% endif %}
 
       {% if scan.file_type == 'dcm' %}
-      <img src="{{ url_for('static', filename='uploads/scans/' + scan.filename.replace('.dcm', '.jpg')) }}">
+        <img src="{{ url_for('static', filename='uploads/scans/' + scan.filename.replace('.dcm', '.jpg')) }}">
         <p><a href="{{ url_for('static', filename=scan.file_path) }}">Download DICOM</a></p>
       {% endif %}
 

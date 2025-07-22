@@ -12,13 +12,13 @@
         {{ scan.description or 'No description' }}<br>
 
         {% if scan.file_type == 'dcm' %}
-          <img src="{{ url_for('static', filename='uploads/scans/' + scan.filename.replace('.dcm', '.jpg')) }}" alt="Preview" width="200">
+          <img src="{{ scan.jpeg_preview_url }}" alt="Preview" width="200">
           <p><strong>Modality:</strong> {{ scan.modality or 'N/A' }}</p>
           <p><strong>Study Date:</strong> {{ scan.study_date or 'N/A' }}</p>
           <p><strong>Patient Name:</strong> {{ scan.patient_name or 'N/A' }}</p>
 
         {% elif scan.file_type in ['jpg', 'jpeg', 'png'] %}
-        <img src="{{ url_for('static', filename='uploads/scans/' + scan.filename) }}" alt="Preview" width="200">
+          <img src="{{ scan.file_path }}" alt="Preview" width="200"
                alt="Scan Image" class="scan-image">
 
         {% elif scan.file_type == 'pdf' %}
