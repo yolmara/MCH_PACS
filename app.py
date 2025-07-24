@@ -107,7 +107,7 @@ def login():
                 timestamp=datetime.now()
             )
             db.session.add(log)
-            db.session.commit()
+            db.session.commit()                                                                                             
 
             return redirect(url_for('home_page')) 
         else:
@@ -314,7 +314,10 @@ def search_patient():
 @app.route('/view-images')
 @login_required
 def view_images():
-    scans = Scan.query.filter(Scan.file_type.in_(['jpg', 'jpeg', 'png'])).all()
+    page = request.args.get('page', 1, type=int)
+    scans = Scan.query.filter(
+        Scan.file_type.in_(['jpg', 'jpeg', 'png'])
+    ).order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=6)
     return render_template('view_images.html', scans=scans)
 
 # Logs Route
