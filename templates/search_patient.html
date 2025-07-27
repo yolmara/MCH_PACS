@@ -2,27 +2,39 @@
 {% block title %}Search Patients{% endblock %}
 
 {% block body %}
+
 <div class="search-patient-div">
-<h2>Search Patients</h2>
-
-  <form method="POST">
-    <input type="text" name="query" placeholder="enter patient name" value="{{ query }}"><br />
-    <button type="submit">Search</button>
-  </form>
-
+  <h2 id="search-patient-h2">Search Patients</h2>
+    <form method="POST" class="search-button-form">
+      <input type="text" name="query" placeholder="enter patient name" value="{{ query }}">
+      <button type="submit">Search</button>
+    </form>
+  
   {% if patients %}
-    <ul>
-      {% for patient in patients %}
-        <li>
-          <strong>{{ patient.name }}</strong><br>
-          Date of Birth: {{ patient.dob }}<br>
-          Sex: {{ patient.sex }}<br>
-          <a href="{{ url_for('patient_records', patient_id=patient.id) }}" target="_blank" class="view-button">View Records</a>
-        </li>
-      {% endfor %}
-    </ul>
+    <table class="patient-table">
+      <thead>
+        <tr>
+          <strong>
+            <th>Name</th>
+            <th>date of birth</th>
+            <th>Sex</th>
+            <th>Record View</th>
+          </strong>
+        </tr>
+      </thead>
+      <tbody>
+        {% for patient in patients %}
+        <tr>
+          <td>{{ patient.name }}</td>
+          <td>{{ patient.dob }}</td>
+          <td>{{ patient.sex }}</td>
+          <td><a href="{{ url_for('patient_records', patient_id=patient.id) }}" target="_blank" class="view-button">View Records</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   {% elif query %}
-    <p>No patients found for "{{ query }}".</p>
+    <p>No Patient Records found for "{{ query }}".</p>
   {% endif %}
 </div>
 {% endblock %}

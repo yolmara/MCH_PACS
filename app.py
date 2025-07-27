@@ -1,20 +1,24 @@
-from flask import Flask, render_template, session, url_for, redirect, request, flash, jsonify
-from werkzeug.security import check_password_hash, generate_password_hash
-from werkzeug.utils import secure_filename
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+import os
 from datetime import datetime
 from functools import wraps
-from flask import send_from_directory
-import os
+
+import numpy as np
+import pydicom
+from dotenv import load_dotenv
+from flask import (Flask, flash, jsonify, redirect, render_template, request,
+                   send_from_directory, session, url_for)
+from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
+from PIL import Image
+from pytz import timezone, utc
+from pyuploadcare import Uploadcare
+from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 
 from config import Config
-from models import db, Patient, User, Scan, ActivityLog  # <-- import your db here
-import pydicom
-from PIL import Image
-import numpy as np
-from pyuploadcare import Uploadcare
-from dotenv import load_dotenv
+from models import (ActivityLog, Patient, Scan,  # <-- import your db here
+                    User, db)
+
 load_dotenv()
 
 
@@ -29,8 +33,17 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# convert to CAT time zone
+def cat_time_filter(utc_dt, fmt='%Y-%m-%d %H:%M:%S'):
+    if utc_dt is None:
+        return ''
+    cat = timezone('Africa/Harare')
+    local_dt = utc_dt.replace(tzinfo=utc).astimezone(cat)
+    return local_dt.strftime(fmt)
+
 app = Flask(__name__)
 app.config.from_object(Config)
+app.jinja_env.filters['cat_time'] = cat_time_filter
 
 # Initialize application
 db.init_app(app)
@@ -207,6 +220,7 @@ def upload_scan():
             description=description,
             patient_id=patient_id,
             modality=modality,
+            timestamp=datetime.utcnow(),
             study_date=study_date,
             patient_name=patient_name
         )
@@ -234,7 +248,7 @@ def uploaded_file(filename):
 @login_required
 def view_records():
     page = request.args.get('page', 1, type=int)
-    per_page = 6
+    per_page = 8
     pagination = Scan.query.order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     scans = pagination.items
 
@@ -245,6 +259,19 @@ def view_records():
                 scan.jpg_preview = scan.filename.replace('.dcm', '.jpg')
 
     return render_template('view_records.html', scans=scans, pagination=pagination)
+
+# View Images
+@app.route('/view-images')
+@login_required
+def view_images():
+    page = request.args.get('page', 1, type=int)
+    pagination = Scan.query.filter(
+        Scan.file_type.in_(['jpg', 'jpeg', 'png'])
+    ).order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=6)
+    scans = pagination.items
+    
+    return render_template('view_images.html', scans=scans, pagination=pagination)
+
 
 # Patients
 @app.route('/add-patient', methods=['GET','POST'])
@@ -309,17 +336,6 @@ def search_patient():
 
     return render_template('search_patient.html', patients=patients, query=query)
 
-
-# View Images
-@app.route('/view-images')
-@login_required
-def view_images():
-    page = request.args.get('page', 1, type=int)
-    scans = Scan.query.filter(
-        Scan.file_type.in_(['jpg', 'jpeg', 'png'])
-    ).order_by(Scan.uploaded_at.desc()).paginate(page=page, per_page=6)
-    return render_template('view_images.html', scans=scans)
-
 # Logs Route
 @app.route('/activity-logs')
 @login_required
@@ -332,7 +348,7 @@ def view_logs():
 @login_required
 def view_patient_scans(patient_id):
     page = request.args.get('page', 1, type=int)
-    per_page = 6
+    per_page = 8
     patient = Patient.query.get_or_404(patient_id)
 
     pagination = Scan.query.filter_by(patient_id=patient_id).paginate(page=page, per_page=per_page)
@@ -406,7 +422,7 @@ def delete_patient(patient_id):
 @app.route('/delete-all-scans')
 @login_required
 def delete_all_scans():
-    from models import db, Scan
+    from models import Scan, db
     scans = Scan.query.all()
     for scan in scans:
         db.session.delete(scan)

@@ -8,7 +8,7 @@
 
 {% if scans %}
 <div class="scans-grid">
-  {% for scan in scans.items %}
+  {% for scan in scans %}
     <div class="scan-card">
       
       {% if scan.file_name %}
@@ -27,7 +27,7 @@
         <a href="{{ file_url }}" target="_blank">Download {{ scan.file_type }}</a>
       {% endif %}
 
-      <p><em>Uploaded: {{ scan.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</em></p>
+      <p><em>Uploaded: {{ scan.timestamp|cat_time }}</em></p>
       <!-- View Button -->
       <a href="{{ file_url }}" target="_blank" class="btn-view">👁️ View</a>
 

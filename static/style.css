@@ -3,8 +3,14 @@ body {
     margin: 0;
     padding: 0;
     font-family:'Segoe UI', sans-serif;
-    background-color: #f5f5f5;
-    color: #333;
+    background: linear-gradient(to left, #61b0ff, #c4d5fa, #f8b8b9); /* Sunset pink → peach → soft blue */
+    color: #1e1e1e;;
+    font-family: 'Segoe UI', sans-serif;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 1.5s ease-in;
 }
 
 /*------------------------------------------------------ HEADER -------------------------------------------------------------------------*/
@@ -46,7 +52,7 @@ nav a {
 }
 
 nav a:hover {
-  color: #62e7ff;
+  color: #00eeff;
   font-size: 105%;
   transition: 0.4s;
 }
@@ -103,66 +109,97 @@ main {
   transform: scale(1.05);
 }
 
-
-/*-------------------------------------------- LOGIN FORM ----------------------------------------------------------------------------------*/
-
-.logintext {
-    text-align: center;
-    font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
-    margin-top: 40px;    
+.feature-box:active {
+  transform: scale(0.97);
 }
 
 
+/*-------------------------------------------- LOGIN FORM / REGISTRATION FORM -----------------------------------------------------------*/
+
+/* Title styling */
+.logintext h1, .logintext p {
+  color: white;
+  font-size: 2rem;
+  text-shadow: 1px 1px 2px #333;
+  animation: slideDown 1s ease-in-out;
+  margin-bottom: 20px;
+  text-align: center;
+  margin-right: 5px;
+}
+
+/* Login form container */
 .loginform {
-    margin: 70px auto;
-    padding: 35px;
-    text-align: center;
-    width: 360px;
-    flex-direction: column;
-    display: flex;
-    gap: 30px;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
-    background: #fff;
-    border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 30px 40px;
+  animation: popUp 1s ease-in-out;
+  min-width: 350px;
 }
 
+/* Inputs */
 .loginform input {
-    border: none;
-    border-bottom: 2px solid #5298da;
-    outline: none; /* Prevent the browser's default blue outline */
-    padding: 8px;
-    width: 80%;
-    text-align: center;
-    margin-bottom: 20px;
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  transition: all 0.3s ease;
 }
 
 .loginform input:focus {
-    border-bottom: 2px solid #007BFF; /* Highlight bottom border on focus */
-    outline: none;
-    box-shadow: none; /* In case the browser tries to add a glow */
+  outline: none;
+  background: #fff;
+  box-shadow: 0 0 8px #61b0ff;
 }
 
+/* Button */
 .loginform button {
-    background-color: rgb(72, 75, 255);
-    width: 70%;
-    border: none;
-    border-radius: 14px;
-    color: white;
-    height: 30px;
-    margin-top: 10px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  border: none;
+  border-radius: 12px;
+  background: #61b0ff;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
 }
 
 .loginform button:hover {
-    background-color: #2b527c;
-    width: 73%;
-    transition: 0.3s;
+  background: #4e9ee6;
+  transform: translateY(-2px);
 }
 
-/*---------------------------------- UPLOAD FORM ----------------------------------------------------------------------*/
+.loginform button:active {
+  transform: scale(0.98);
+}
 
-.uploads {
+/* Animations */
+@keyframes slideDown {
+  0% { opacity: 0; transform: translateY(-30px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popUp {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/*------------------------------------------------- Edit Scans ------------------------------------------------------*/
+.edit-scan {
   margin: 70px auto;
-  padding: 40px;
+  padding: 35px;
   text-align: center;
   width: 350px;
   display: flex;
@@ -173,24 +210,19 @@ main {
   border-radius: 10px;
 }
 
-.uploads h2 {
-  margin-bottom: 5px;
-}
- 
-.upload-form .form-group {
+.edit-form-group {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   width: 100%;
 }
 
-.upload-form label {
+.edit-form-group label {
   font-weight: bold;
-  margin-bottom: 5px;
 }
 
-.upload-form input,
-.upload-form select {
+.edit-form-group input,
+.edit-form-group select {
   padding: 8px 10px;
   font-size: 14px;
   margin-bottom: 20px;
@@ -199,22 +231,37 @@ main {
   width: 100%;
 }
 
-.upload-form button {
-  background-color: #007BFF;
-  color: white;
-  padding: 10px;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  width: 100%;
+.edit-scan button{
+  width: 60%;
+  background-color: #6cb3ff;
+  border:none;
+  border-radius: 8px;
   font-size: 16px;
+  padding: 10px;
 }
 
-.upload-form button:hover {
-  background-color: #2b527c;
+.edit-scan button:hover {
+  width: 65%;
+  background-color: #0080ff;
+  cursor: pointer;
   transition: 0.2s;
+  transform: scale(1.03)
 }
 
+.edit-scan button:active {
+  transform: scale(0.97);
+}
+
+.edit-scan a {
+  text-decoration: none;
+  color: rgb(64, 91, 243);
+}
+
+.edit-scan a:hover {
+  color: rgb(18, 156, 180);
+  font-size: 105%;
+  cursor: pointer;
+}
 
 /*---------------------------------------------------- View_Records/View_Images -------------------------------------------------------------*/
 .scans-grid {
@@ -310,42 +357,60 @@ main {
 }
 
 /*----------------------------------------------------------Search Patient-------------------------------------------------------------------*/
-.search-patient-div {
-  display: flex;
-  flex-direction: column;
-  margin: 70px auto;
+
+#search-patient-h2 {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin-top: 25px;
+  margin-bottom: 10px;
   text-align: center;
-  width: 300px;
-  gap: 15px; 
 }
 
-.search-patient-div input {
+.search-patient-div {
+  width: 720px;
+  margin: 70px auto;
+  margin-top: 70px;
+  font-family: 'Segoe UI', sans-serif; 
+}
+
+.search-button-form  {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+  gap: 10px;
+}
+
+.search-button-form input {
   margin-top: 30px;
-  width: 100%;
+  width: 50%;
   padding: 10px 12px;
   background-color: white;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   border: 1px solid #ccc;
   border-radius: 12px;
   text-align: center;
 }
 
-.search-patient-div button {
-  background-color: #007BFF;
-  width: 50%;
-  padding: 6px 8px;
-  margin-top: 20px;
-  color: white;
+.search-button-form button {
+  margin-top: 30px;
+  width: 12%;
+  padding: 5px 6px;
+  background: #3195ff;
+  color: #fff;
   border: none;
-  border-radius: 12px;
-  cursor: pointer;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: background 0.3s ease;
+
 }
 
 .search-patient-div button:hover {
-    background-color: #2b527c;
+    background: #007BFF;
+    transform: scale(1.03);
     transition: 0.2s;
 }
 
+.search-patient-div button:active {
+  transform: scale(0.97);
+}
 
 /*-----------------------------------------------Patient Scans (Pagination) ----------------------------------------------------------------------------*/
 .scans-grid {
@@ -392,6 +457,10 @@ main {
   background-color: #f0f0f0;
 }
 
+.pagination a:active {
+  transform: scale(0.97);
+}
+
 /*-----------------------------------------------------------Add-Patient----------------------------------------------------------------------------*/
 .add-patient-div {
   width: 320px;
@@ -431,13 +500,17 @@ main {
   border: none;
   border-radius: 10px;
   color: white;
-  background-color: #007BFF
+  background-color: #6eb3fd
 }
 
 .add-patient-div button:hover {
-  background-color: #004080;
+  background-color: #0080ff;
   transition:ease-in-out 0.2s; 
   width: 72.5%;
+}
+
+.add-patient-div button:active {
+  transform: scale(0.97);
 }
 
 /*-------------------------------------------------------Patient List Table----------------------------------------------------------*/
@@ -473,7 +546,7 @@ main {
 
 #search-btn {
   padding: 10px 20px;
-  background-color: #1e88e5;
+  background-color: #57b1ff;
   color: white;
   border: none;
   border-radius: 12px;
@@ -482,7 +555,13 @@ main {
 }
 
 #search-btn:hover {
-  background-color: #1565c0;
+  background-color: #0077ff;
+  transform: scale(1.03);
+  transition: 0.2s;
+}
+
+#search-btn:active {
+  transform: scale(0.97);
 }
 
 /* Table Styling */

@@ -1,5 +1,6 @@
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+
+from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
@@ -24,6 +25,7 @@ class Scan(db.Model):
     jpeg_preview_url = db.Column(db.String(300), nullable=True)
     modality = db.Column(db.String(50))
     study_date = db.Column(db.String(20))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     patient_name = db.Column(db.String(100))
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 

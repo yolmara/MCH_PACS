@@ -30,7 +30,7 @@
           </a>
         {% endif %}
 
-        <p><em>Uploaded: {{ scan.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</em></p>
+        <p><em>Uploaded: {{ scan.timestamp|cat_time }}</em></p>
 
         <!-- View Button -->
         <a href="{{ url_for('static', filename='uploads/scans/' + scan.filename) }}" target="_blank" class="btn-view">👁️</a>
