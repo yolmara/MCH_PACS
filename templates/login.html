@@ -4,11 +4,12 @@
 {% endblock %}
 
 {% block body %}
-<div class="logintext">
+<div class="login-page">
+    <div class="logintext">
     <h1>MCH Records Digitization System</h1>
     <p>login to access the system</p>
-</div>
-<div class="loginform">
+  </div>
+  <div class="loginform">
     <form method="POST" action="{{url_for('login')}}">
         
         <input name="username" type="text" placeholder="username"><br/>
@@ -16,7 +17,7 @@
         <input name="password" type="password" placeholder="password"><br/>
 
         <button type="submit">Login</button>
-</form>
+    </form>
+  </div>
 </div>
-
 {% endblock %}

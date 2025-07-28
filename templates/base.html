@@ -4,11 +4,15 @@
     <meta charset="UTF-8">
     <title>{% block title %}MCH PACS{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon (2).ico') }}" type="image/x-icon">
     {% block head %}{% endblock %}
 </head>
 <body>
     <header>
-    <div class="logo"><a href="{{url_for('home_page')}}">🏥 Mpilo Central Hospital</a></div>
+    <div class="logo">
+        <a href="{{ url_for('home_page') }}"><img src="{{ url_for('static', filename='images/mpilo_logo_200px.png') }}" alt="Mpilo Logo"></a>
+        <span class="hospital-name">Mpilo Central Hospital</span>
+    </div>
     <nav>
         <a href="/home">Home</a>
         <a href="{{url_for('add_patient')}}">Add Patient</a>

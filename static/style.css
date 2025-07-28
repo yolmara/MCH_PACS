@@ -6,8 +6,6 @@ body {
     background: linear-gradient(to left, #61b0ff, #c4d5fa, #f8b8b9); /* Sunset pink → peach → soft blue */
     color: #1e1e1e;;
     font-family: 'Segoe UI', sans-serif;
-    height: 100vh;
-    display: flex;
     justify-content: center;
     align-items: center;
     animation: fadeIn 1.5s ease-in;
@@ -24,9 +22,28 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 24px;
+  padding: 8px 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   z-index: 1000;          /* Ensures it's on top of everything */
+}
+
+.logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px 3px;
+}
+
+.logo img {
+  height: 30px;
+  width: auto;
+  margin-right: 5px;
+}
+
+.hospital-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
 }
 
 /* Logo */
@@ -92,7 +109,10 @@ main {
 .feature-box {
   display: block;
   text-align: center;
-  background-color: white;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid #ccc;
   padding: 30px 20px;
   border-radius: 8px;
@@ -115,6 +135,15 @@ main {
 
 
 /*-------------------------------------------- LOGIN FORM / REGISTRATION FORM -----------------------------------------------------------*/
+
+.login-page {
+  width: 100%;
+  display: flex;
+  margin: 50px auto;
+  justify-content: center;
+  height: 90vh;
+  align-items: center;
+}
 
 /* Title styling */
 .logintext h1, .logintext p {
@@ -196,6 +225,93 @@ main {
   to { opacity: 1; transform: scale(1); }
 }
 
+
+/* ----------------------------------------------- Upload Form ----------------------------------------------------------- */
+.uploads {
+  max-width: 400px;
+  margin: 75px auto;
+  padding: 30px 40px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: slideIn 0.5s ease forwards;
+  opacity: 0;
+}
+
+.uploads h2 {
+  text-align: center;
+  margin-bottom: 25px;
+  color: #333;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.upload-form .form-group {
+  margin-bottom: 20px;
+}
+
+.upload-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+}
+
+.upload-form input[type="file"],
+.upload-form input[type="text"],
+.upload-form select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 15px;
+  transition: border 0.3s ease;
+  background-color: #fafafa;
+}
+
+.upload-form input:focus,
+.upload-form select:focus {
+  border-color: #5dade2;
+  outline: none;
+}
+
+.upload-form button {
+  width: 100%;
+  padding: 14px;
+  background: #5dade2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.upload-form button:hover {
+  background: #3498db;
+  transform: scale(1.03)
+}
+
+.upload-form button:active {
+  transform: scale(0.97)
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0px);
+    opacity: 1;
+  }
+}
+
+
+
 /*------------------------------------------------- Edit Scans ------------------------------------------------------*/
 .edit-scan {
   margin: 70px auto;
@@ -205,8 +321,10 @@ main {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  background: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: 10px;
 }
 
@@ -278,7 +396,6 @@ main {
   padding: 8px;
   width: 200px;
   text-align: center;
-  box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
 }
 
 .scan-image {
@@ -470,8 +587,10 @@ main {
   margin-top: 85px;
   gap:15px;
   padding: 40px 20px;
-  background-color: white;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   font-weight: bold;
   border-radius: 10px;
   text-align: center;
