@@ -170,6 +170,8 @@ def upload_scan():
         file = request.files['file']
         description = request.form.get('description')
         patient_id = request.form.get('patient_id')
+        mch_number = request.form.get('mch_number', '').strip()
+        national_id = request.form.get('national_id', '').strip()
 
         if file.filename == '':
             flash('No file selected for uploading', 'danger')
@@ -222,7 +224,8 @@ def upload_scan():
             modality=modality,
             timestamp=datetime.utcnow(),
             study_date=study_date,
-            patient_name=patient_name
+            patient_name=patient_name,
+            
         )
         db.session.add(new_scan)
         db.session.commit()
@@ -332,7 +335,9 @@ def search_patient():
 
     patients = []
     if query:
-        patients = Patient.query.filter(Patient.name.ilike(f"%{query}%")).all()
+        flash('Enter patient national_ID, mch number or name!')
+        patients = Patient.query.filter(Patient.name.ilike(f"%{query}%"), Patient.national_id.ilike(f"%{query}%"),
+                                        Patient.mch_number.ilike(f"%{query}%")).all()
 
     return render_template('search_patient.html', patients=patients, query=query)
 

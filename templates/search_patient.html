@@ -6,7 +6,7 @@
 <div class="search-patient-div">
   <h2 id="search-patient-h2">Search Patients</h2>
     <form method="POST" class="search-button-form">
-      <input type="text" name="query" placeholder="enter patient name" value="{{ query }}">
+      <input type="text" name="query" placeholder="National ID or MCH number" value="{{ query }}">
       <button type="submit">Search</button>
     </form>
   
@@ -16,6 +16,8 @@
         <tr>
           <strong>
             <th>Name</th>
+            <th>National-ID</th>
+            <th>MCH-Number</th>
             <th>date of birth</th>
             <th>Sex</th>
             <th>Record View</th>
@@ -26,6 +28,8 @@
         {% for patient in patients %}
         <tr>
           <td>{{ patient.name }}</td>
+          <td>{{ patient.national_id }}</td>
+          <td>{{ patient.mch_number }}</td>
           <td>{{ patient.dob }}</td>
           <td>{{ patient.sex }}</td>
           <td><a href="{{ url_for('patient_records', patient_id=patient.id) }}" target="_blank" class="view-button">View Records</a></td>
