@@ -2,43 +2,56 @@
 {% block title %}Search Patients{% endblock %}
 
 {% block body %}
-
 <div class="search-patient-div">
   <h2 id="search-patient-h2">Search Patients</h2>
-    <form method="POST" class="search-button-form">
-      <input type="text" name="query" placeholder="National ID or MCH number" value="{{ query }}">
-      <button type="submit">Search</button>
-    </form>
-  
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flashes">
+        {% for cat, msg in messages %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form method="POST" class="search-button-form">
+    <input type="text" name="query" placeholder="Name, National ID or MCH number" value="{{ query or '' }}">
+    <button type="submit">Search</button>
+  </form>
+
   {% if patients %}
     <table class="patient-table">
       <thead>
         <tr>
-          <strong>
-            <th>Name</th>
-            <th>National-ID</th>
-            <th>MCH-Number</th>
-            <th>date of birth</th>
-            <th>Sex</th>
-            <th>Record View</th>
-          </strong>
+          <th>Name</th>
+          <th>National ID</th>
+          <th>MCH Number</th>
+          <th>Date of Birth</th>
+          <th>Sex</th>
+          <th>Record View</th>
         </tr>
       </thead>
       <tbody>
         {% for patient in patients %}
-        <tr>
-          <td>{{ patient.name }}</td>
-          <td>{{ patient.national_id }}</td>
-          <td>{{ patient.mch_number }}</td>
-          <td>{{ patient.dob }}</td>
-          <td>{{ patient.sex }}</td>
-          <td><a href="{{ url_for('patient_records', patient_id=patient.id) }}" target="_blank" class="view-button">View Records</a></td>
-        </tr>
+          <tr>
+            <td>{{ patient.name }}</td>
+            <td>{{ patient.national_id or '—' }}</td>
+            <td>{{ patient.mch_number }}</td>
+            <td>{{ patient.dob or '—' }}</td>
+            <td>{{ patient.sex or '—' }}</td>
+            <td>
+              <a href="{{ url_for('patient_records', patient_id=patient.id) }}" target="_blank" class="view-button">
+                View Records
+              </a>
+            </td>
+          </tr>
         {% endfor %}
       </tbody>
     </table>
   {% elif query %}
-    <p>No Patient Records found for "{{ query }}".</p>
+    <p>No patient records found for “{{ query }}”.</p>
   {% endif %}
 </div>
 {% endblock %}
+

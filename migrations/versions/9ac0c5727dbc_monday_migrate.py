@@ -1,8 +1,8 @@
-"""Make mch_number non-nullable and enforce uniqueness
+"""Monday Migrate
 
-Revision ID: 9d003666344d
-Revises: 80dddbbd9fdd
-Create Date: 2025-08-03 22:29:00.296955
+Revision ID: 9ac0c5727dbc
+Revises: 130ff5d7ead8
+Create Date: 2025-08-04 19:41:19.477957
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '9d003666344d'
-down_revision = '80dddbbd9fdd'
+revision = '9ac0c5727dbc'
+down_revision = '130ff5d7ead8'
 branch_labels = None
 depends_on = None
 

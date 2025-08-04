@@ -1,28 +1,40 @@
 {% extends 'base.html' %}
-{% block title %}Add-Patient{% endblock %}
+{% block title %}Add Patient{% endblock %}
 
 {% block body %}
 <div class="add-patient-div">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flashes">
+        {% for cat, msg in messages %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
   <form method="POST">
     <label>Name:</label><br>
-    <input type="text" name="name" required><br />
+    <input type="text" name="name" required value="{{ request.form.name or '' }}"><br/>
+
     <label>Date of Birth:</label><br>
-    <input type="date" name="dob" required><br />
-    
+    <input type="date" name="dob" required value="{{ request.form.dob or '' }}"><br/>
+
     <label for="sex">Sex:</label><br>
-    <select name="sex" id="sex" required><br />
+    <select name="sex" id="sex" required>
       <option value="">--- Select ---</option>
-      <option value="Male">Male</option>
-      <option value="Female">Female</option>
-      <option value="Other">Other</option>
-    </select><br><br>
+      <option value="Male" {% if request.form.sex == 'Male' %}selected{% endif %}>Male</option>
+      <option value="Female" {% if request.form.sex == 'Female' %}selected{% endif %}>Female</option>
+      <option value="Other" {% if request.form.sex == 'Other' %}selected{% endif %}>Other</option>
+    </select><br/><br/>
 
-    <label for="national_id">National-ID:</label><br/>
-    <input type="text" name="national_id" id="national_id"><br />
+    <label for="national_id">National ID:</label><br/>
+    <input type="text" name="national_id" id="national_id" value="{{ request.form.national_id or '' }}"><br/>
 
-    <label for="mch_number">MCH-Number</label><br/>
-    <input type="text" name="mch_number" id="mch_number" required><br/>
-  <button type="submit">Add Patient</button>
-</form>
+    <label for="mch_number">MCH Number:</label><br/>
+    <input type="text" name="mch_number" id="mch_number" required value="{{ request.form.mch_number or '' }}"><br/>
+
+    <button type="submit">Add Patient</button>
+  </form>
 </div>
 {% endblock %}
