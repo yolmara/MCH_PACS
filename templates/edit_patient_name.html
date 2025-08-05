@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Edit Patient Name{% endblock %}
+
+{% block body %}
+  <div class="edit-form">
+    <h2>Edit Patient Name</h2>
+    <form method="POST">
+      <label for="name">New Name:</label>
+      <input type="text" id="name" name="name" value="{{ patient.name }}" required>
+
+      <label>Date of Birth:</label><br>
+      <input type="date" name="dob" required value="{{ patient.dob }}"><br/>
+
+      <label for="sex">Sex:</label><br>
+      <select name="sex" id="sex" required>
+        <option value="">--- Select ---</option>
+        <option value="Male" {% if patient.sex == 'Male' %}selected{% endif %}>Male</option>
+        <option value="female" {% if patient.sex == 'female' %}selected{% endif %}>Female</option>
+        <option value="Other" {% if patient.sex == 'Other' %}selected{% endif %}>Other</option>
+      </select><br/><br/>
+
+      <label for="national_id">National ID:</label><br/>
+      <input type="text" name="national_id" id="national_id" value="{{ patient.national_id }}"><br/>
+
+      <label for="mch_number">MCH Number:</label><br/>
+      <input type="text" name="mch_number" id="mch_number"  value="{{ patient.mch_number }}"><br/>
+
+      <button type="submit" class="edit-patient-name" title="Edit Patient">Edit</button>
+    </form>
+  </div>
+{% endblock %}

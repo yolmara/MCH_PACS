@@ -580,7 +580,7 @@ main {
 
 /*-----------------------------------------------------------Add-Patient----------------------------------------------------------------------------*/
 .add-patient-div {
-  width: 320px;
+  width: 400px;
   display:flex;
   flex-direction: column;
   margin: 70px auto;
@@ -602,6 +602,7 @@ main {
   border : 1px solid #ccc;
   border-radius: 5px;
   text-align: center;
+  width: 75%;
 }
 
 .add-patient-div select {

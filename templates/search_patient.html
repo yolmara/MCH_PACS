@@ -5,16 +5,6 @@
 <div class="search-patient-div">
   <h2 id="search-patient-h2">Search Patients</h2>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="flashes">
-        {% for cat, msg in messages %}
-          <div class="flash {{ cat }}">{{ msg }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
-
   <form method="POST" class="search-button-form">
     <input type="text" name="query" placeholder="Name, National ID or MCH number" value="{{ query or '' }}">
     <button type="submit">Search</button>

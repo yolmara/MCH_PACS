@@ -54,12 +54,6 @@ uploadcare = Uploadcare(
     secret_key=app.config['UPLOADCARE_SECRET_KEY']
 )
 
-
-# Create Tables upon instance
-#@app.before_first_request
-#def create_tables():
-#    db.create_all()
-
 with app.app_context():
     db.create_all()
 
@@ -276,16 +270,18 @@ def view_images():
     return render_template('view_images.html', scans=scans, pagination=pagination)
 
 
-# Patients
+# Add Patients
 @app.route('/add-patient', methods=['GET','POST'])
 @login_required
 def add_patient():
     if request.method == 'POST':
         name = request.form.get('name')
         dob = request.form.get('dob')
-        sex = request.form.get('sex')  # Capture this
+        sex = request.form.get('sex')  
+        national_id = request.form.get('national_id')
+        mch_number = request.form.get('mch_number')
 
-        new_patient = Patient(name=name, dob=dob, sex=sex)
+        new_patient = Patient(name=name, dob=dob, sex=sex, national_id=national_id, mch_number=mch_number)
         db.session.add(new_patient)
         db.session.commit()
         flash('Patient added successfully.')
@@ -395,6 +391,28 @@ def edit_scan(scan_id):
 
     return render_template('edit_scan.html', scan=scan, patients=patients)
 
+# Edit Patient Name
+@app.route('/edit-patient/<int:patient_id>', methods=['GET', 'POST'])
+def edit_patient(patient_id):
+    patient = Patient.query.get_or_404(patient_id)
+
+    if request.method == 'POST':
+        try:
+            patient.name = request.form['name']
+            patient.dob = request.form['dob']
+            patient.sex = request.form['sex']
+            patient.national_id = request.form['national_id']
+            patient.mch_number = request.form['mch_number']
+
+            db.session.commit()
+            flash('Patient updated successfully!', 'success')
+            return redirect(url_for('list_patients')) 
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating patient: {str(e)}', 'danger')
+
+    return render_template('edit_patient_name.html', patient=patient)
+
 # List Patient
 @app.route('/patients', methods=['GET', 'POST'])
 @login_required
@@ -414,7 +432,7 @@ def list_patients():
 def delete_patient(patient_id):
     patient = Patient.query.get_or_404(patient_id)
 
-    for scan in patient.scans:
+    for scan in patient.records:
         db.session.delete(scan)
 
     db.session.delete(patient)

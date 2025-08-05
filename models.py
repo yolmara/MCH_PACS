@@ -10,7 +10,7 @@ class Patient(db.Model):
     name = db.Column(db.String(280), nullable=False)
     dob = db.Column(db.Date, nullable=True)
     national_id = db.Column(db.String(80), nullable=True, unique=True, index=True)
-    mch_number = db.Column(db.String(80), nullable=False, unique=True, index=True)
+    mch_number = db.Column(db.String(80), nullable=True, unique=True, index=True)
     sex = db.Column(db.String(20), nullable=True)
     external_id = db.Column(db.String(40), unique=True, nullable=True)
     records = db.relationship('Scan', backref='patient', lazy=True)
