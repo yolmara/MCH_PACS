@@ -9,6 +9,7 @@ from flask import (Flask, flash, jsonify, redirect, render_template, request,
                    send_from_directory, session, url_for)
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import or_
 from PIL import Image
 from pytz import timezone, utc
 from pyuploadcare import Uploadcare
@@ -331,11 +332,19 @@ def search_patient():
 
     patients = []
     if query:
-        flash('Enter patient national_ID, mch number or name!')
-        patients = Patient.query.filter(Patient.name.ilike(f"%{query}%"), Patient.national_id.ilike(f"%{query}%"),
-                                        Patient.mch_number.ilike(f"%{query}%")).all()
+        patients = Patient.query.filter(
+            or_(
+                Patient.name.ilike(f"%{query}%"),
+                Patient.national_id.ilike(f"%{query}%"),
+                Patient.mch_number.ilike(f"%{query}%")
+            )
+        ).all()
+
+        if not patients:
+            flash(f'No patient records found for "{query}".')
 
     return render_template('search_patient.html', patients=patients, query=query)
+
 
 # Logs Route
 @app.route('/activity-logs')
