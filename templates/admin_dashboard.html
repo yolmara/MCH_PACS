@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% extends 'home.html' %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block body %}
+<main>
+    <section class="features">
+        <a href="{{ url_for('admin_users') }}" class="feature-box">👥Manage Users</a>
+        <a href="{{ url_for('view_logs') }}" class="feature-box">👨‍💻View Activity Logs</a> 
+    </section>
+</main>
+{% endblock %}

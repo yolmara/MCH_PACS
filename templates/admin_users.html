@@ -1,0 +1,32 @@
+{'extends base.html'}
+{% block title %} Registered Users{% endblock %}
+
+{% block body %}
+<h1>Registered Users</h1>
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Action</th>
+        </tr>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.role }}</td>
+            <td>
+                {% if user.role != 'admin' %}
+                <form action="{{ url_for('delete_user', user_id=user.id) }}" method="POST" style="display:inline;">
+                    <button type="submit" onclick="return confirm('Delete this user?')">🗑️</button>
+                </form>
+                {% else %}
+                <em>Admin</em>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    <br>
+    <a href="{{ url_for('admin_dashboard') }}">Back to Dashboard</a>
+{% endblock %}

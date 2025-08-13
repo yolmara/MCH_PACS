@@ -22,6 +22,15 @@ from models import (ActivityLog, Patient, Scan,  # <-- import your db here
 
 load_dotenv()
 
+# Admin Required
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('role') != 'admin':
+            flash('Admin access required', 'danger')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 #Login required helper
 def login_required(f):
@@ -66,31 +75,21 @@ def home_page():
 
 
 # Registration Route
-@app.route('/register-admin-user', methods=['GET','POST'])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form['username']
+        password = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
+        role = 'user'  # default
+        if admin_token == 'admins@pacs':  # Set your strong token
+            role = 'admin'
 
-        if not username or not password:
-            flash('Please fill in both fields!')
-            return redirect(url_for('register'))
-        
-        user = User.query.filter_by(username=username).first()
-        
-        if user:
-            flash('User already exists!')
-            return redirect(url_for('login'))
-        
-        #create a new user with hashed password
-        hashed_password = generate_password_hash(password)
-        new_user = User(username=username, password=hashed_password)
-
-        db.session.add(new_user)
+        user = User(username=username, password=password, role=role)
+        db.session.add(user)
         db.session.commit()
 
+        flash('Account created successfully', 'success')
         return redirect(url_for('login'))
-
     return render_template('register.html')
 
 
@@ -104,23 +103,23 @@ def login():
         user = User.query.filter_by(username=username).first()
 
         if user and check_password_hash(user.password, password):
-            session['user_id'] = user.id  # optional: track session
-            session['username'] = user.username 
-            flash('Logged in successfully.')
+            session['user_id'] = user.id
+            session['username'] = user.username
+            session['role'] = user.role  # store role in session
+            flash('Logged in successfully!', 'success')
 
-            log = ActivityLog(
-                action='Login',
-                description=f'User {user.username} logged in.',
-                user=user.username,
-                timestamp=datetime.now()
+            logs = ActivityLog(
+                action = 'login',
+                description=f'User {username} logged in.',
+                user=username
             )
-            db.session.add(log)
-            db.session.commit()                                                                                             
 
-            return redirect(url_for('home_page')) 
+            db.session.add(logs)
+            db.session.commit()
+
+            return redirect(url_for('home_page'))
         else:
-            flash('Invalid username or password.')
-            return redirect(url_for('login'))
+            flash('Invalid username or password', 'danger')
 
     return render_template('login.html')
 
@@ -345,10 +344,35 @@ def search_patient():
 
     return render_template('search_patient.html', patients=patients, query=query)
 
-
-# Logs Route
-@app.route('/activity-logs')
+# Admin Dashboard
+@app.route('/admin/dashboard')
 @login_required
+@admin_required
+def admin_dashboard():
+    users = User.query.all()
+    logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).all()
+    return render_template('admin_dashboard.html', users=users, logs=logs)
+
+# Registered Users
+@app.route('/admin/users')
+@admin_required
+def list_users():
+    users = User.query.all()
+    return render_template('admin_users.html', users=users)
+
+# Admin Delete Users
+@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
+@admin_required
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    db.session.delete(user)
+    db.session.commit()
+    flash('User deleted successfully', 'success')
+    return redirect(url_for('list_users'))
+
+# Activity Logs Route
+@app.route('/admin/logs')
+@admin_required
 def view_logs():
     logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).all()
     return render_template('activity_logs.html', logs=logs)
@@ -375,7 +399,7 @@ def patient_records(patient_id):
 
     return render_template('patient_records.html', patient=patient, scans=scans)
 
-#Edit Route
+#Edit Scan Route
 @app.route('/edit-scan/<int:scan_id>', methods=['GET', 'POST'])
 @login_required
 def edit_scan(scan_id):

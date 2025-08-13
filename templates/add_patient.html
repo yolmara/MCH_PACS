@@ -3,6 +3,8 @@
 
 {% block body %}
 <div class="add-patient-div">
+  <h2>Add Patient</h2>
+  
   <form method="POST">
     <label>Name:</label><br>
     <input type="text" name="name" required value="{{ request.form.name or '' }}"><br/>

@@ -8,7 +8,6 @@ body {
     font-family: 'Segoe UI', sans-serif;
     justify-content: center;
     align-items: center;
-    animation: fadeIn 1.5s ease-in;
 }
 
 /*------------------------------------------------------ HEADER -------------------------------------------------------------------------*/
@@ -82,6 +81,7 @@ nav a:hover {
 
 main {
   margin: 145px auto;
+  animation: fadeIn 1.5s ease-in;
 }
 
 .intro h1 {
@@ -242,7 +242,7 @@ main {
 
 .uploads h2 {
   text-align: center;
-  margin-bottom: 25px;
+  margin-bottom: 18px;
   color: #333;
   font-size: 24px;
   font-weight: bold;
@@ -266,6 +266,7 @@ main {
   padding: 12px;
   border: 1px solid #ccc;
   border-radius: 8px;
+  text-align: center;
   font-size: 15px;
   transition: border 0.3s ease;
   background-color: #fafafa;
@@ -323,6 +324,7 @@ main {
   gap: 15px;
   background: rgba(255, 255, 255, 0.15);
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  animation: slideIn 0.5s ease forwards;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: 10px;
@@ -588,6 +590,7 @@ main {
   gap:15px;
   padding: 40px 20px;
   background: rgba(255, 255, 255, 0.15);
+  animation: slideIn 0.5s ease forwards;
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -596,22 +599,32 @@ main {
   text-align: center;
 }
 
-.add-patient-div input {
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border : 1px solid #ccc;
-  border-radius: 5px;
-  text-align: center;
-  width: 75%;
+.add-patient-div h2{
+  text-align:center;
+  margin-bottom: 18px;
+  color: #333;
+  font-size: 22px;
+  font-weight: bold;
 }
 
-.add-patient-div select {
-  margin-bottom: 1px;
-  padding: 8px 1px;
-  border : 1px solid #ccc;
-  border-radius: 5px;
-  text-align: center;
+.add-patient-div label {
+  font-weight: 500;
+  color: #555;
 }
+
+.add-patient-div input,
+.add-patient-div select {
+  width: 90%;
+  padding:12px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 15px;
+  text-align: center;
+  transition: border 0.3s ease;
+  background-color: #fafafa;
+}
+
 
 .add-patient-div button {
   cursor: pointer;
@@ -639,6 +652,7 @@ main {
   margin: 40px auto;
   margin-top: 70px;
   font-family: 'Segoe UI', sans-serif;
+  animation: slideIn 0.5s ease forwards;
 }
 
 #reg-patients {

@@ -18,10 +18,9 @@
         <a href="{{url_for('add_patient')}}">Add Patient</a>
         <a href="{{ url_for('upload_scan') }}">Upload Record</a>
         <a href="view-records">View Records</a>
-        <a href="{{ url_for('view_logs') }}">Activity Logs</a>
         <a href="{{ url_for('logout') }}" class="logout-button">🚪Logout</a>
     </nav>
-</header>
+    </header>
     {% block body %}{% endblock %}
 
 </body>
