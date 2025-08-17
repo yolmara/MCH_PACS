@@ -1,12 +1,13 @@
 import os
 
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-secret-for-dev')
 
     # PostgreSQL URI format: postgresql+psycopg2://user:password@host:port/database
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         'DATABASE_URL',
-        'postgresql+psycopg2://mch_pacs_db_user:mZqUaZG0d155O3G6Y05lvWS7ZoqcbEaJ@dpg-d1sgrqndiees73fj393g-a.frankfurt-postgres.render.com/mch_pacs_db'
+        'postgresql://neondb_owner:npg_Fvgqc5RuV9dz@ep-old-scene-acet6c4q-pooler.sa-east-1.aws.neon.tech/mch-pacs?sslmode=require&channel_binding=require'
     )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
