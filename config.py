@@ -7,7 +7,7 @@ class Config:
     # PostgreSQL URI format: postgresql+psycopg2://user:password@host:port/database
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         'DATABASE_URL',
-        'postgresql://neondb_owner:npg_Fvgqc5RuV9dz@ep-old-scene-acet6c4q-pooler.sa-east-1.aws.neon.tech/mch-pacs?sslmode=require&channel_binding=require'
+        'postgresql+psycopg2://neondb_owner:npg_Fvgqc5RuV9dz@ep-old-scene-acet6c4q-pooler.sa-east-1.aws.neon.tech/mch-pacs?sslmode=require'
     )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
