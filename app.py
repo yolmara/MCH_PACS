@@ -7,12 +7,13 @@ import pydicom
 from dotenv import load_dotenv
 from flask import (Flask, flash, jsonify, redirect, render_template, request,
                    send_from_directory, session, url_for)
+from flask_login import LoginManager, current_user, login_user, logout_user
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import or_
 from PIL import Image
 from pytz import timezone, utc
 from pyuploadcare import Uploadcare
+from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -22,13 +23,17 @@ from models import (ActivityLog, Patient, Scan,  # <-- import your db here
 
 load_dotenv()
 
+# Admin Token
+admin_token = ''
+
 # Admin Required
 def admin_required(f):
     @wraps(f)
+    @login_required
     def decorated_function(*args, **kwargs):
-        if session.get('role') != 'admin':
-            flash('Admin access required', 'danger')
-            return redirect(url_for('dashboard'))
+        if current_user.role != 'admin':
+            flash('Access denied: Admins only.', 'danger')
+            return redirect(url_for('home_page'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -59,19 +64,37 @@ app.jinja_env.filters['cat_time'] = cat_time_filter
 db.init_app(app)
 migrate = Migrate(app, db)
 
-uploadcare = Uploadcare(
-    public_key=app.config['UPLOADCARE_PUBLIC_KEY'],
-    secret_key=app.config['UPLOADCARE_SECRET_KEY']
-)
+# Login Manager configuration
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 with app.app_context():
     db.create_all()
+
+#####################################
+############### ROUTES ##############
+#####################################
+
+# Activity Logs Route
+@app.route("/activity-logs")
+@admin_required
+@login_required
+def activity_logs():
+    logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).all()
+    return render_template("activity_logs.html", logs=logs)
+
 
 # Home Page Route
 @app.route('/home')
 @login_required
 def home_page():
     return render_template('home.html')
+
 
 
 # Registration Route
@@ -81,7 +104,7 @@ def register():
         username = request.form['username']
         password = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
         role = 'user'  # default
-        if admin_token == 'admins@pacs':  # Set your strong token
+        if admin_token == 'admins@pacs':  # token for registering admin
             role = 'admin'
 
         user = User(username=username, password=password, role=role)
@@ -103,6 +126,8 @@ def login():
         user = User.query.filter_by(username=username).first()
 
         if user and check_password_hash(user.password, password):
+            login_user(user)
+            
             session['user_id'] = user.id
             session['username'] = user.username
             session['role'] = user.role  # store role in session
@@ -113,7 +138,8 @@ def login():
                 description=f'User {username} logged in.',
                 user=username
             )
-
+            
+            user.role = "admin"
             db.session.add(logs)
             db.session.commit()
 
@@ -344,15 +370,6 @@ def search_patient():
 
     return render_template('search_patient.html', patients=patients, query=query)
 
-# Admin Dashboard
-@app.route('/admin/dashboard')
-@login_required
-@admin_required
-def admin_dashboard():
-    users = User.query.all()
-    logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).all()
-    return render_template('admin_dashboard.html', users=users, logs=logs)
-
 # Registered Users
 @app.route('/admin/users')
 @admin_required
@@ -370,12 +387,6 @@ def delete_user(user_id):
     flash('User deleted successfully', 'success')
     return redirect(url_for('list_users'))
 
-# Activity Logs Route
-@app.route('/admin/logs')
-@admin_required
-def view_logs():
-    logs = ActivityLog.query.order_by(ActivityLog.timestamp.desc()).all()
-    return render_template('activity_logs.html', logs=logs)
 
 # Patient Scans
 @app.route('/patient/<int:patient_id>/scans')
@@ -496,21 +507,21 @@ def db_test():
 
 # Logout Route
 @app.route('/logout')
+@login_required
 def logout():
-    username = session.get('username','Unknown')
+    username = current_user.username  # for logging purposes
+    logout_user()  # Flask-Login clears the session for us
 
-    log = ActivityLog(
-        action='Logout',
+    # Log the logout activity
+    logs = ActivityLog(
+        action='logout',
         description=f'User {username} logged out.',
         user=username
     )
-    db.session.add(log)
+    db.session.add(logs)
     db.session.commit()
 
-    session.pop('user_id', None)
-    session.pop('username', None)
-
-    flash('Logged out successfully.')
+    flash('You have been logged out.')
     return redirect(url_for('login'))
 
 if __name__ == "__main__":

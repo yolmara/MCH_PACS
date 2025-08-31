@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -38,7 +39,7 @@ class ActivityLog(db.Model):
     user = db.Column(db.String(100), default='Admin')
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-class User(db.Model):
+class User(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(200), nullable=False, unique=True)
