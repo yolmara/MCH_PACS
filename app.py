@@ -95,25 +95,31 @@ def activity_logs():
 def home_page():
     return render_template('home.html')
 
-
-
 # Registration Route
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form['username']
         password = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
-        role = 'user'  # default
-        if admin_token == 'admins@pacs':  # token for registering admin
-            role = 'admin'
+        role = request.form['role']  # comes from radio button
 
+        # Default role is user
+        if role == 'admin':
+            admin_token = request.form.get('admin_token', '').strip()
+            if admin_token != 'admins@pacs':  # check token
+                flash('⚠️Invalid admin token. Registration failed.⚠️')
+                return redirect(url_for('register'))
+
+        # Save user
         user = User(username=username, password=password, role=role)
         db.session.add(user)
         db.session.commit()
 
-        flash('Account created successfully', 'success')
+        flash(f'Account created successfully as {role}', 'success')
         return redirect(url_for('login'))
+
     return render_template('register.html')
+
 
 
 # Login Route
@@ -377,16 +383,6 @@ def list_users():
     users = User.query.all()
     return render_template('admin_users.html', users=users)
 
-# Admin Delete Users
-@app.route('/admin/delete-user/<int:user_id>', methods=['POST'])
-@admin_required
-def delete_user(user_id):
-    user = User.query.get_or_404(user_id)
-    db.session.delete(user)
-    db.session.commit()
-    flash('User deleted successfully', 'success')
-    return redirect(url_for('list_users'))
-
 
 # Patient Scans
 @app.route('/patient/<int:patient_id>/scans')
@@ -485,6 +481,23 @@ def delete_patient(patient_id):
     flash('Patient deleted successfully!')
     return redirect(url_for('list_patients'))
 
+# User roles-fix
+@app.route("/fix-roles")
+def fix_roles():
+    from app import User, db
+
+    # Set one known admin
+    admin_user = User.query.filter_by(username="coder911").first()
+    if admin_user:
+        admin_user.role = "admin"
+
+    # Set everyone else to "user"
+    for u in User.query.filter(User.username != "coder911").all():
+        u.role = "user"
+
+    db.session.commit()
+    return "Roles updated!"
+
 # Clear Scans
 @app.route('/delete-all-scans')
 @login_required
@@ -496,14 +509,20 @@ def delete_all_scans():
     db.session.commit()
     return "All scan records deleted!"
 
-@app.route('/db-test')
-def db_test():
-    try:
-        # Just a harmless query
-        result = db.session.execute('SELECT 1')
-        return '✅ DB connection successful!'
-    except Exception as e:
-        return f'❌ DB Error: {e}'
+# delete users
+@app.route('/delete-all-users', methods=['POST'])
+@login_required
+def delete_all_users():
+    if current_user.role != 'admin':  # only admins can trigger
+        flash("Unauthorized action!", "danger")
+        return redirect(url_for('home_page'))
+
+    # Delete all users
+    User.query.delete()
+    db.session.commit()
+
+    flash("All users have been deleted. Please register a new account.", "success")
+    return redirect(url_for('login'))
 
 # Logout Route
 @app.route('/logout')
