@@ -101,14 +101,14 @@ def register():
     if request.method == 'POST':
         username = request.form['username']
         password = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
-        role = request.form['role']  # comes from radio button
+        selected_role = request.form.get('role', 'user')  # user or admin
+        admin_token = request.form.get('admin_token', '')
 
-        # Default role is user
-        if role == 'admin':
-            admin_token = request.form.get('admin_token', '').strip()
-            if admin_token != 'admins@pacs':  # check token
-                flash('⚠️Invalid admin token. Registration failed.⚠️')
-                return redirect(url_for('register'))
+        role = 'user'
+
+        if selected_role == 'admin' and admin_token == 'admins@pacs':
+            role = 'admin'
+        
 
         # Save user
         user = User(username=username, password=password, role=role)
@@ -119,8 +119,6 @@ def register():
         return redirect(url_for('login'))
 
     return render_template('register.html')
-
-
 
 # Login Route
 @app.route('/', methods=['GET', 'POST'])
@@ -133,27 +131,32 @@ def login():
 
         if user and check_password_hash(user.password, password):
             login_user(user)
-            
+
+            # Store user details in session
             session['user_id'] = user.id
             session['username'] = user.username
-            session['role'] = user.role  # store role in session
+            session['role'] = user.role  # correctly store role
+
             flash('Logged in successfully!', 'success')
 
+            # Log the login action
             logs = ActivityLog(
-                action = 'login',
+                action='login',
                 description=f'User {username} logged in.',
                 user=username
             )
-            
-            user.role = "admin"
             db.session.add(logs)
             db.session.commit()
+
+            # Debugging - print role to console
+            print(f"✅ {user.username} logged in with role: {user.role}")
 
             return redirect(url_for('home_page'))
         else:
             flash('Invalid username or password', 'danger')
 
     return render_template('login.html')
+
 
 
 # Upload Route
@@ -376,13 +379,6 @@ def search_patient():
 
     return render_template('search_patient.html', patients=patients, query=query)
 
-# Registered Users
-@app.route('/admin/users')
-@admin_required
-def list_users():
-    users = User.query.all()
-    return render_template('admin_users.html', users=users)
-
 
 # Patient Scans
 @app.route('/patient/<int:patient_id>/scans')
@@ -481,22 +477,6 @@ def delete_patient(patient_id):
     flash('Patient deleted successfully!')
     return redirect(url_for('list_patients'))
 
-# User roles-fix
-@app.route("/fix-roles")
-def fix_roles():
-    from app import User, db
-
-    # Set one known admin
-    admin_user = User.query.filter_by(username="coder911").first()
-    if admin_user:
-        admin_user.role = "admin"
-
-    # Set everyone else to "user"
-    for u in User.query.filter(User.username != "coder911").all():
-        u.role = "user"
-
-    db.session.commit()
-    return "Roles updated!"
 
 # Clear Scans
 @app.route('/delete-all-scans')
@@ -510,7 +490,7 @@ def delete_all_scans():
     return "All scan records deleted!"
 
 # delete users
-@app.route('/delete-all-users', methods=['POST'])
+@app.route('/delete-all-users')
 @login_required
 def delete_all_users():
     if current_user.role != 'admin':  # only admins can trigger
@@ -523,6 +503,30 @@ def delete_all_users():
 
     flash("All users have been deleted. Please register a new account.", "success")
     return redirect(url_for('login'))
+
+
+# Manage Users
+@app.route('/manage-users')
+@admin_required
+def manage_users():
+    users = User.query.all()
+    return render_template("manage_users.html", users=users)
+
+
+@app.route("/admin/delete-user/<int:user_id>", methods=["POST"])
+@login_required
+@admin_required
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+
+    if user.username == "coder911":
+        flash("You cannot delete the primary admin !!!", "danger")
+        return redirect(url_for("manage_users"))
+
+    db.session.delete(user)
+    db.session.commit()
+    flash(f"User {user.username} deleted successfully.", "success")
+    return redirect(url_for("manage_users"))
 
 # Logout Route
 @app.route('/logout')

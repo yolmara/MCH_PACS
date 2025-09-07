@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Manage Users{% endblock %}
+
+{% block body %}
+<div class="patient-list">
+  <h1>👥 Manage Users</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+        <tr>
+          <td>{{ user.id }}</td>
+          <td>{{ user.username }}</td>
+          <td>{{ user.role }}</td>
+          <td>
+            {% if user.username != "coder911" %}
+              <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                <button type="submit">❌ Delete</button>
+              </form>
+            {% else %}
+              <span>🔒 Protected</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

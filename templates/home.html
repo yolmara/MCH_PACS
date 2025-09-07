@@ -7,7 +7,6 @@
     <section class="intro">
         <h1>Welcome to the Patient Records Digitization System</h1>
         <p>This portal allows authorized medical staff to access patient records</p>
-        <p>Current user role: {{ current_user.role }}</p>
     </section>
 
     <section class="features">
@@ -15,11 +14,12 @@
         <a href="{{ url_for('search_patient') }}" class="feature-box">🔍 Search Patient Files</a>
         <a href="{{ url_for('view_images') }}" class="feature-box">🖼️ View Archived Images</a>
         <a href="{{ url_for('list_patients') }}" class="feature-box">📋 Patient List</a>
-
-        {% if current_user.is_authenticated and current_user.role == 'admin' %}
-            <a href="{{ url_for('list_users') }}" class="feature-box">👥 Manage Users</a>
-            <a href="{{ url_for('activity_logs') }}" class="feature-box">👨‍💻 View Activity Logs</a>
-        {% endif %}
     </section>
+    {% if current_user.is_authenticated and current_user.role == 'admin' %}
+        <section class="features">
+            <a href="{{ url_for('manage_users') }}" class="feature-box">👥 Manage Users</a>
+            <a href="{{ url_for('activity_logs') }}" class="feature-box">👨‍💻 View Activity Logs</a>
+        </section>
+    {% endif %}
 </main>
 {% endblock %}
