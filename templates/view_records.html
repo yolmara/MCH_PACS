@@ -12,20 +12,25 @@
         {{ scan.description or 'No description' }}<br>
 
         {% if scan.file_type == 'dcm' %}
-          <img src="{{ scan.jpeg_preview_url }}" alt="Preview" width="200">
+          {% if scan.jpeg_preview_url %}
+            <img src="{{ url_for('static', filename='uploads/scans/' + scan.jpeg_preview_url) }}" 
+                 alt="Preview" width="200">
+          {% else %}
+            <p><em>No preview available</em></p>
+          {% endif %}
           <p><strong>Modality:</strong> {{ scan.modality or 'N/A' }}</p>
           <p><strong>Study Date:</strong> {{ scan.study_date or 'N/A' }}</p>
           <p><strong>Patient Name:</strong> {{ scan.patient_name or 'N/A' }}</p>
 
         {% elif scan.file_type in ['jpg', 'jpeg', 'png'] %}
-          <img src="{{ scan.file_path }}" alt="Preview" width="200"
-               alt="Scan Image" class="scan-image">
+          <img src="{{ url_for('static', filename='uploads/scans/' + scan.file_name) }}" 
+               alt="Scan Image" width="200">
 
         {% elif scan.file_type == 'pdf' %}
-          <a href="{{ url_for('static', filename='uploads/scans/' + scan.filename) }}" target="_blank">📄 View PDF</a>
+          <a href="{{ url_for('static', filename='uploads/scans/' + scan.file_name) }}" target="_blank">📄 View PDF</a>
 
         {% else %}
-          <a href="{{ url_for('static', filename='uploads/scans/' + scan.filename) }}" target="_blank">
+          <a href="{{ url_for('static', filename='uploads/scans/' + scan.file_name) }}" target="_blank">
             Download {{ scan.file_type }}
           </a>
         {% endif %}
@@ -33,7 +38,8 @@
         <p><em>Uploaded: {{ scan.timestamp|cat_time }}</em></p>
 
         <!-- View Button -->
-        <a href="{{ url_for('static', filename='uploads/scans/' + scan.filename) }}" target="_blank" class="btn-view">👁️</a>
+        <a href="{{ url_for('static', filename='uploads/scans/' + scan.file_name) }}" 
+           target="_blank" class="btn-view">👁️</a>
 
         <!-- Edit Button -->
         <a href="{{ url_for('edit_scan', scan_id=scan.id) }}" class="btn-edit">✏️</a>
@@ -63,3 +69,4 @@
   </div>
 {% endif %}
 {% endblock %}
+

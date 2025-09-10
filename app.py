@@ -163,7 +163,6 @@ def login():
 @app.route('/upload_scan', methods=['GET', 'POST'])
 @login_required
 def upload_scan():
-    # Upload setup
     UPLOAD_FOLDER = os.path.join(app.static_folder, 'uploads', 'scans')
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpeg', 'jpg', 'dcm', 'tiff'}
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -206,10 +205,14 @@ def upload_scan():
             flash('No file selected for uploading', 'danger')
             return redirect(request.url)
 
+        if not allowed_file(file.filename):
+            flash('File type not allowed', 'danger')
+            return redirect(request.url)
+
         try:
             patient_id = int(patient_id) if patient_id else None
         except ValueError:
-            flash('Invalid patient ID')
+            flash('Invalid patient ID', 'danger')
             return redirect(request.url)
 
         filename = secure_filename(file.filename.lower())
@@ -217,14 +220,7 @@ def upload_scan():
         file.save(absolute_path)
         file_ext = filename.rsplit('.', 1)[1].lower()
 
-        dicom_url = None
-        jpeg_url = None
-
-        # Upload original file to Uploadcare
-        with open(absolute_path, 'rb') as f:
-            dicom_file = uploadcare.upload(f)
-            dicom_url = dicom_file.cdn_url
-
+        jpeg_preview_name = None
         modality = study_date = patient_name = 'N/A'
 
         if file_ext == 'dcm' and is_dicom(absolute_path):
@@ -233,28 +229,23 @@ def upload_scan():
             study_date = getattr(ds, 'StudyDate', 'N/A')
             patient_name = str(getattr(ds, 'PatientName', 'N/A'))
 
-            # Convert and upload JPEG
-            jpeg_name = filename.replace('.dcm', '.jpg')
-            jpeg_path = os.path.join(UPLOAD_FOLDER, jpeg_name)
+            # Generate preview
+            jpeg_preview_name = filename.replace('.dcm', '.jpg')
+            jpeg_path = os.path.join(UPLOAD_FOLDER, jpeg_preview_name)
             convert_dicom_to_jpeg(absolute_path, jpeg_path)
 
-            with open(jpeg_path, 'rb') as jpeg_file:
-                jpeg_uploaded = uploadcare.upload(jpeg_file)
-                jpeg_url = jpeg_uploaded.cdn_url
-
-        # Save record
+        # Save record in DB
         new_scan = Scan(
             file_name=filename,
             file_type=file_ext,
-            file_path=dicom_url,
-            jpeg_preview_url=jpeg_url,
+            file_path=filename,  # now just storing the filename
+            jpeg_preview_url=jpeg_preview_name,  # preview filename if exists
             description=description,
             patient_id=patient_id,
             modality=modality,
             timestamp=datetime.utcnow(),
             study_date=study_date,
             patient_name=patient_name,
-            
         )
         db.session.add(new_scan)
         db.session.commit()
