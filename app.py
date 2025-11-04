@@ -60,6 +60,9 @@ app = Flask(__name__)
 app.config.from_object(Config)
 app.jinja_env.filters['cat_time'] = cat_time_filter
 
+#Uploadcare Configuration
+uploadcare = Uploadcare(public_key='83de91569ee2a4d5f898', secret_key='e067cc474783f6d55ebb')
+
 # Initialize application
 db.init_app(app)
 migrate = Migrate(app, db)
