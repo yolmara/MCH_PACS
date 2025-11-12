@@ -48,6 +48,9 @@
         <form action="{{ url_for('delete_scan', scan_id=scan.id) }}" method="POST" style="display:inline;">
           <button type="submit" class="btn-delete" onclick="return confirm('Are you sure you want to delete this scan?');">🗑️</button>
         </form>
+
+        <!--Share button-->
+        <button type="button" class="share-btn" data-link="{{ scan.file_url }}" data-filename="{{ scan.filename }}">🔗 Share</button>
       </div>
     {% endfor %}
   </div>
@@ -68,5 +71,72 @@
     <p>No patient scan records available.</p>
   </div>
 {% endif %}
+
+<script>
+document.querySelectorAll('.share-btn').forEach(button => {
+  button.addEventListener('click', async () => {
+    const link = button.getAttribute('data-link');
+    const filename = button.getAttribute('data-filename') || 'Scan file';
+
+    // Check if Web Share API is available (mobile devices mostly)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Patient Scan',
+          text: `Check out this scan: ${filename}`,
+          url: link
+        });
+        // Show success feedback
+        const originalText = button.textContent;
+        button.textContent = '✓ Shared!';
+        button.style.backgroundColor = '#28a745';
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.backgroundColor = '';
+        }, 2000);
+      } catch (err) {
+        // User cancelled or error occurred
+        if (err.name !== 'AbortError') {
+          console.log('Share failed:', err);
+        }
+      }
+    } else {
+      // Fallback: copy link to clipboard
+      try {
+        await navigator.clipboard.writeText(link);
+        // Show success feedback
+        const originalText = button.textContent;
+        button.textContent = '✓ Copied!';
+        button.style.backgroundColor = '#28a745';
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.backgroundColor = '';
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy link:', err);
+        // Fallback to older method
+        const temp = document.createElement('textarea');
+        temp.value = link;
+        temp.style.position = 'fixed';
+        temp.style.opacity = '0';
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        
+        const originalText = button.textContent;
+        button.textContent = '✓ Copied!';
+        button.style.backgroundColor = '#28a745';
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.backgroundColor = '';
+        }, 2000);
+      }
+    }
+  });
+});
+</script>
+
 {% endblock %}
+
 

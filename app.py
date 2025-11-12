@@ -280,7 +280,12 @@ def view_records():
 
     for scan in scans:
         if scan.file_path:
+            # Create a static-accessible URL for sharing
+            scan.file_url = url_for('static', filename='uploads/scans/' + scan.file_name, _external=True)
+
             scan.filename = os.path.basename(scan.file_path)
+
+            # DICOM preview
             if scan.filename.endswith('.dcm'):
                 scan.jpg_preview = scan.filename.replace('.dcm', '.jpg')
 
@@ -314,7 +319,7 @@ def add_patient():
         db.session.add(new_patient)
         db.session.commit()
         flash('Patient added successfully.')
-        return redirect(url_for('add_patient'))
+        return redirect(url_for('upload_scan'))
     
     return render_template('add_patient.html')
 
@@ -521,6 +526,40 @@ def delete_user(user_id):
     db.session.commit()
     flash(f"User {user.username} deleted successfully.", "success")
     return redirect(url_for("manage_users"))
+
+# Scan Stats
+@app.route('/scan-stats')
+@login_required
+def scan_stats():
+    # Initialize counters
+    counts = {
+        'MRI': 0,
+        'CT': 0,
+        'X-Ray': 0,
+        'PDF': 0,
+        'PNG/JPG': 0
+    }
+
+    scans = Scan.query.all()
+    for scan in scans:
+        # Count DICOM modalities if file_type is dcm
+        if scan.file_name.endswith('.dcm') and scan.modality:
+            mod = scan.modality.upper()
+            if 'MRI' in mod:
+                counts['MRI'] += 1
+            elif 'CT' in mod:
+                counts['CT'] += 1
+            elif 'XRAY' in mod or 'X-RAY' in mod:
+                counts['X-Ray'] += 1
+        else:
+            ext = scan.file_name.split('.')[-1].lower()
+            if ext in ['pdf']:
+                counts['PDF'] += 1
+            elif ext in ['png', 'jpg', 'jpeg']:
+                counts['PNG/JPG'] += 1
+
+    return render_template('scan_stats.html', counts=counts)
+
 
 # Logout Route
 @app.route('/logout')
