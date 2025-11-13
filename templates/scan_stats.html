@@ -4,19 +4,18 @@
 {% block body %}
     <div class="container">
         <div class="header">
-            <h1>📊 PACS Scan Statistics</h1>
-            <p>Overview of uploaded medical imaging scans</p>
+            <h1>Overview of uploaded scans</h1>
         </div>
 
         <div class="total-scans">
             <h2>Total Scans Uploaded</h2>
             <div class="total-count" id="totalCount">0</div>
-            <a href="{{ url_for('view_records') }}" class="back-button">← Back to Records</a>
+            <a href="{{ url_for('view_records') }}" class="back-button">← Uploaded Scans</a>
         </div>
 
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="icon">🧠</div>
+                <div class="icon">🖥️</div>
                 <div class="count">{{ counts['MRI'] }}</div>
                 <div class="label">MRI Scans</div>
             </div>
@@ -36,7 +35,7 @@
             <div class="stat-card">
                 <div class="icon">📄</div>
                 <div class="count">{{ counts['PDF'] }}</div>
-                <div class="label">PDF Reports</div>
+                <div class="label">PDF Docs</div>
             </div>
 
             <div class="stat-card">
@@ -214,5 +213,4 @@
             }
         });
     </script>
-</body>
 {% endblock %}

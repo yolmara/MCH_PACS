@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block body %}
+<h2>📊 System Summary Report</h2>
+
+<form method="POST" class="date-form">
+  <label>Start Date:</label>
+  <input type="date" name="start_date" value="{{ start_date }}">
+  <label>End Date:</label>
+  <input type="date" name="end_date" value="{{ end_date }}">
+  <button type="submit">Generate</button>
+  <button type="submit" name="download_pdf">📄 Download PDF</button>
+</form>
+
+<hr>
+
+<h3>🗓️ Upload Summary</h3>
+<ul>
+  <li><strong>Today:</strong> {{ daily_count }} scans</li>
+  <li><strong>This Week:</strong> {{ weekly_count }} scans</li>
+  <li><strong>This Month:</strong> {{ monthly_count }} scans</li>
+</ul>
+
+<h3>📁 Scans by Type ({{ start_date }} → {{ end_date }})</h3>
+<ul>
+  {% for ft, count in scans_by_type %}
+    <li>{{ ft.upper() }} — {{ count }}</li>
+  {% endfor %}
+</ul>
+
+<canvas id="scanChart" width="400" height="200"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('scanChart').getContext('2d');
+const scanChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ labels | tojson }},
+        datasets: [{
+            label: 'Scans Uploaded',
+            data: {{ data | tojson }},
+            borderWidth: 1,
+            backgroundColor: '#4B9CD3'
+        }]
+    },
+    options: { scales: { y: { beginAtZero: true } } }
+});
+</script>
+{% endblock %}

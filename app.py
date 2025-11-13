@@ -1,19 +1,24 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
 import numpy as np
 import pydicom
+import io
 from dotenv import load_dotenv
 from flask import (Flask, flash, jsonify, redirect, render_template, request,
-                   send_from_directory, session, url_for)
+                   send_from_directory, send_file, session, url_for)
 from flask_login import LoginManager, current_user, login_user, logout_user
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from PIL import Image
 from pytz import timezone, utc
 from pyuploadcare import Uploadcare
-from sqlalchemy import or_
+from sqlalchemy import or_, func
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -530,6 +535,7 @@ def delete_user(user_id):
 # Scan Stats
 @app.route('/scan-stats')
 @login_required
+@admin_required
 def scan_stats():
     # Initialize counters
     counts = {
@@ -561,6 +567,102 @@ def scan_stats():
     return render_template('scan_stats.html', counts=counts)
 
 
+# Report Generation
+@app.route('/reports', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def reports():
+    # Default date range (last 7 days)
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=7)
+
+    if request.method == 'POST':
+        start_str = request.form.get('start_date')
+        end_str = request.form.get('end_date')
+        if start_str and end_str:
+            start_date = datetime.strptime(start_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_str, '%Y-%m-%d')
+
+        # Check if user clicked "Download PDF"
+        if 'download_pdf' in request.form:
+            return generate_report_pdf(start_date, end_date)
+    
+    # Count scans by file type
+    scans_by_type = (
+        db.session.query(Scan.file_type, func.count(Scan.id))
+        .filter(Scan.uploaded_at >= start_date, Scan.uploaded_at <= end_date)
+        .group_by(Scan.file_type)
+        .all()
+    )
+
+    # Summary counts
+    today = datetime.utcnow().date()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+
+    daily_count = Scan.query.filter(func.date(Scan.uploaded_at) == today).count()
+    weekly_count = Scan.query.filter(Scan.uploaded_at >= week_start).count()
+    monthly_count = Scan.query.filter(Scan.uploaded_at >= month_start).count()
+
+    labels = [ft.upper() for ft, _ in scans_by_type]
+    data = [count for _, count in scans_by_type]
+
+    return render_template(
+        'reports.html',
+        daily_count=daily_count,
+        weekly_count=weekly_count,
+        monthly_count=monthly_count,
+        scans_by_type=scans_by_type,
+        labels=labels,
+        data=data,
+        start_date=start_date.date(),
+        end_date=end_date.date()
+    )
+
+def generate_report_pdf(start_date, end_date):
+    """Generate downloadable PDF summary report."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+
+    title = Paragraph(f"<b>System Summary Report</b>", styles["Title"])
+    story.append(title)
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"Reporting Period: {start_date.date()} to {end_date.date()}", styles["Normal"]))
+    story.append(Spacer(1, 12))
+
+    # Query data again
+    scans_by_type = (
+        db.session.query(Scan.file_type, func.count(Scan.id))
+        .filter(Scan.uploaded_at >= start_date, Scan.uploaded_at <= end_date)
+        .group_by(Scan.file_type)
+        .all()
+    )
+
+    # Table data
+    data = [["File Type", "Total Scans"]]
+    for file_type, count in scans_by_type:
+        data.append([file_type.upper(), count])
+
+    table = Table(data, colWidths=[200, 200])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#4B9CD3")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+        ("GRID", (0, 0), (-1, -1), 1, colors.grey),
+    ]))
+    story.append(table)
+
+    doc.build(story)
+    buffer.seek(0)
+
+    filename = f"System_Report_{start_date.date()}_to_{end_date.date()}.pdf"
+    return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
+
+    
 # Logout Route
 @app.route('/logout')
 @login_required
