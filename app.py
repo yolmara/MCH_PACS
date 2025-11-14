@@ -561,7 +561,7 @@ def scan_stats():
             ext = scan.file_name.split('.')[-1].lower()
             if ext in ['pdf']:
                 counts['PDF'] += 1
-            elif ext in ['png', 'jpg', 'jpeg']:
+            elif ext in ['png', 'jpg']:
                 counts['PNG/JPG'] += 1
 
     return render_template('scan_stats.html', counts=counts)

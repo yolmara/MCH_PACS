@@ -436,31 +436,31 @@ main {
 }
 
 .btn-edit {
-  background-color: rgb(0, 144, 192);
+  background-color: rgb(164, 193, 202);
   color: white;
 }
 
 .btn-edit:hover {
-  background-color: rgb(106, 157, 173);
+  background-color: rgb(87, 118, 128);
 }
 
 .btn-view {
-  background-color: #4CAF50;
+  background-color: #80af82;
   color: white;
 }
 
 .btn-delete {
-  background-color: #f44336;
+  background-color: #a5615c;
   color: white;
 }
 
 .btn-view:hover {
-    background-color: #356337;
+    background-color: #3c583d;
     transition: 0.3s;
 }
 
 .btn-delete:hover {
-    background-color: #913730;
+    background-color: #5a3e3c;
     transition: 0.3s;
 }
 
@@ -758,6 +758,100 @@ main {
 }
 
 
+/*--------------------------------------------------------- Manage Users ------------------------------------------------------------*/
+.patient-list {
+    width: 90%;
+    margin: 110px auto 40px auto;
+    background: rgba(255, 255, 255, 0.65);
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+    backdrop-filter: blur(6px);
+}
+
+/* TITLE */
+.patient-list h1 {
+    color: #004080;
+    text-align: center;
+    font-size: 32px;
+    margin-bottom: 25px;
+    font-weight: 700;
+}
+
+/* TABLE */
+.patient-list table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.patient-list table thead {
+    background: #004080;
+    color: white;
+}
+
+.patient-list table thead th {
+    padding: 12px 10px;
+    font-size: 15px;
+}
+
+.patient-list table tbody tr {
+    transition: background 0.2s ease-in-out;
+}
+
+.patient-list table tbody tr:hover {
+    background: #eaf2ff;
+}
+
+.patient-list table tbody td {
+    padding: 14px 10px;
+    font-size: 14px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* DELETE BUTTON */
+.patient-list button[type="submit"] {
+    background: #d9534f;
+    border: none;
+    color: white;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s ease-in-out;
+}
+
+.patient-list button[type="submit"]:hover {
+    background: #c9302c;
+}
+
+/* PROTECTED LABEL */
+.patient-list span {
+    color: #666;
+    font-size: 14px;
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+    .patient-list {
+        width: 95%;
+        padding: 15px;
+    }
+
+    .patient-list table thead {
+        font-size: 14px;
+    }
+
+    .patient-list table tbody td {
+        font-size: 13px;
+        padding: 10px;
+    }
+}
+
+
+
 /*--------------------------------------------------------- Activity Logs -------------------------------------------------------------*/
 .log-table {
   width: 95%;
@@ -932,6 +1026,86 @@ main {
             }
           }
 
+/*------------------------------------------------------ Reports -------------------------------------------------------------------*/
+.report-title {
+  text-align: center;
+  color: #004080;
+  margin-top: 100px;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.report-container {
+  width: 65%;
+  margin: 85px auto;
+  background: #ffffffc9;
+  border-radius: 15px;
+  padding: 30px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.report-form {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.report-form input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.generate-btn {
+  background-color: #004080;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.download-btn {
+  background-color : #004080;
+  color: white;
+  border: none;
+  margin: 20px auto;
+  justify-content: center;
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  width: 20%;
+}
+
+.generate-btn:hover,
+.download-btn:hover {
+  background-color: #0059b3;
+}
+
+.stats-summary {
+  display: flex;
+  justify-content: space-around;
+  margin: 30px 0;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+  padding: 20px;
+  text-align: center;
+  width: 200px;
+}
+
+.chart-container {
+  width: 100%;
+  margin-top: 40px;
+}
 
 
 /*------------------------------------------------------- Footer --------------------------------------------------------------------*/

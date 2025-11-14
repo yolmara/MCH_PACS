@@ -1,49 +1,64 @@
 {% extends 'base.html' %}
+{% block title %}📊 System Reports{% endblock %}
+
 {% block body %}
-<h2>📊 System Summary Report</h2>
+<h2 class="report-title">📊 System Summary Reports</h2>
 
-<form method="POST" class="date-form">
-  <label>Start Date:</label>
-  <input type="date" name="start_date" value="{{ start_date }}">
-  <label>End Date:</label>
-  <input type="date" name="end_date" value="{{ end_date }}">
-  <button type="submit">Generate</button>
-  <button type="submit" name="download_pdf">📄 Download PDF</button>
-</form>
+<div class="report-container">
+  <form method="GET" action="{{ url_for('reports') }}" class="report-form">
+    <label for="start_date">Start Date:</label>
+    <input type="date" name="start_date" required>
 
-<hr>
+    <label for="end_date">End Date:</label>
+    <input type="date" name="end_date" required>
 
-<h3>🗓️ Upload Summary</h3>
-<ul>
-  <li><strong>Today:</strong> {{ daily_count }} scans</li>
-  <li><strong>This Week:</strong> {{ weekly_count }} scans</li>
-  <li><strong>This Month:</strong> {{ monthly_count }} scans</li>
-</ul>
+    <button type="submit" class="generate-btn">Generate Report</button>
+  </form>
 
-<h3>📁 Scans by Type ({{ start_date }} → {{ end_date }})</h3>
-<ul>
-  {% for ft, count in scans_by_type %}
-    <li>{{ ft.upper() }} — {{ count }}</li>
-  {% endfor %}
-</ul>
+  <div class="stats-summary">
+    <div class="stat-card">
+      <h3>📅 Today</h3>
+      <p>{{ today_count }} Scans</p>
+    </div>
+    <div class="stat-card">
+      <h3>🗓️ This Week</h3>
+      <p>{{ week_count }} Scans</p>
+    </div>
+    <div class="stat-card">
+      <h3>📆 This Month</h3>
+      <p>{{ month_count }} Scans</p>
+    </div>
+  </div>
 
-<canvas id="scanChart" width="400" height="200"></canvas>
+  <div class="chart-container">
+    <canvas id="scanChart"></canvas>
+  </div>
+
+  <form method="GET" action="{{ url_for('reports') }}">
+    <button type="submit" class="download-btn">⬇️ Download PDF</button>
+  </form>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const ctx = document.getElementById('scanChart').getContext('2d');
-const scanChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: {{ labels | tojson }},
-        datasets: [{
-            label: 'Scans Uploaded',
-            data: {{ data | tojson }},
-            borderWidth: 1,
-            backgroundColor: '#4B9CD3'
-        }]
-    },
-    options: { scales: { y: { beginAtZero: true } } }
+const ctx = document.getElementById('scanChart');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: ['MRI', 'CT', 'X-Ray', 'PDF', 'PNG'],
+    datasets: [{
+      label: 'Total Scans',
+      data: [{{ mri_count }}, {{ ct_count }}, {{ xray_count }}, {{ pdf_count }}, {{ png_count }}],
+      borderWidth: 1,
+      backgroundColor: [
+        '#004080', '#007bff', '#61b0ff', '#c4d5fa', '#f8b8b9'
+      ],
+    }]
+  },
+  options: {
+    responsive: true,
+    scales: { y: { beginAtZero: true } }
+  }
 });
 </script>
 {% endblock %}
