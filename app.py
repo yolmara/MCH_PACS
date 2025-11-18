@@ -539,7 +539,7 @@ def delete_user(user_id):
 def scan_stats():
     # Initialize counters
     counts = {
-        'MRI': 0,
+        'MR': 0,
         'CT': 0,
         'X-Ray': 0,
         'PDF': 0,
@@ -551,8 +551,8 @@ def scan_stats():
         # Count DICOM modalities if file_type is dcm
         if scan.file_name.endswith('.dcm') and scan.modality:
             mod = scan.modality.upper()
-            if 'MRI' in mod:
-                counts['MRI'] += 1
+            if 'MR' in mod:
+                counts['MR'] += 1
             elif 'CT' in mod:
                 counts['CT'] += 1
             elif 'XRAY' in mod or 'X-RAY' in mod:
