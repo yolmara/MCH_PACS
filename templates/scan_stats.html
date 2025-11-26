@@ -16,8 +16,8 @@
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="icon">🖥️</div>
-                <div class="count">{{ counts['MRI'] }}</div>
-                <div class="label">MRI Scans</div>
+                <div class="count">{{ counts['MR'] }}</div>
+                <div class="label">MR Scans</div>
             </div>
 
             <div class="stat-card">
@@ -69,12 +69,14 @@
         </div>
     </div>
 
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Data from Flask
         const scanData = {
-            labels: ['MRI', 'CT', 'X-Ray', 'PDF', 'PNG/JPG'],
+            labels: ['MR', 'CT', 'X-Ray', 'PDF', 'PNG/JPG'],
             counts: [
-                {{ counts['MRI'] }},
+                {{ counts['MR'] }},
                 {{ counts['CT'] }},
                 {{ counts['X-Ray'] }},
                 {{ counts['PDF'] }},

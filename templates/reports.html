@@ -7,10 +7,10 @@
 <div class="report-container">
   <form method="GET" action="{{ url_for('reports') }}" class="report-form">
     <label for="start_date">Start Date:</label>
-    <input type="date" name="start_date" required>
+    <input type="date" name="start_date" value="{{start_date}}" required>
 
     <label for="end_date">End Date:</label>
-    <input type="date" name="end_date" required>
+    <input type="date" name="end_date" value="{{end_date}}" required>
 
     <button type="submit" class="generate-btn">Generate Report</button>
   </form>
@@ -18,15 +18,15 @@
   <div class="stats-summary">
     <div class="stat-card">
       <h3>📅 Today</h3>
-      <p>{{ today_count }} Scans</p>
+      <p>{{ daily_count }} Scans</p>
     </div>
     <div class="stat-card">
       <h3>🗓️ This Week</h3>
-      <p>{{ week_count }} Scans</p>
+      <p>{{ weekly_count }} Scans</p>
     </div>
     <div class="stat-card">
       <h3>📆 This Month</h3>
-      <p>{{ month_count }} Scans</p>
+      <p>{{ monthly_count }} Scans</p>
     </div>
   </div>
 
@@ -34,8 +34,10 @@
     <canvas id="scanChart"></canvas>
   </div>
 
-  <form method="GET" action="{{ url_for('reports') }}">
-    <button type="submit" class="download-btn">⬇️ Download PDF</button>
+  <form method="POST" action="{{ url_for('reports') }}">
+    <input type="hidden" name="start_date" value="{{start_date.strftime('%Y-%m-%d')}}">
+    <input type="hidden" name="end_date" value="{{end_date.strftime('%Y-%m-%d')}}">
+    <button type="submit" name="download_pdf" class="download-btn">⬇️ Download PDF</button>
   </form>
 </div>
 
@@ -48,7 +50,7 @@ new Chart(ctx, {
     labels: ['MRI', 'CT', 'X-Ray', 'PDF', 'PNG'],
     datasets: [{
       label: 'Total Scans',
-      data: [{{ mri_count }}, {{ ct_count }}, {{ xray_count }}, {{ pdf_count }}, {{ png_count }}],
+      data: [{{ mr_count }}, {{ ct_count }}, {{ xray_count }}, {{ pdf_count }}, {{ png_count }}],
       borderWidth: 1,
       backgroundColor: [
         '#004080', '#007bff', '#61b0ff', '#c4d5fa', '#f8b8b9'

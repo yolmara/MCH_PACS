@@ -576,24 +576,44 @@ def reports():
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=7)
 
-    if request.method == 'POST':
+    if request.method == 'GET':
         start_str = request.form.get('start_date')
         end_str = request.form.get('end_date')
         if start_str and end_str:
             start_date = datetime.strptime(start_str, '%Y-%m-%d')
             end_date = datetime.strptime(end_str, '%Y-%m-%d')
 
-        # Check if user clicked "Download PDF"
-        if 'download_pdf' in request.form:
+    # POST downloads PDF
+    if request.method == 'POST':
+        start_str = request.form.get('start_date')
+        end_str = request.form.get('end_date')
+        if start_str and end_str:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d")
+            end_date = datetime.strptime(end_str, "%Y-%m-%d")
+
+        if "download_pdf" in request.form:
             return generate_report_pdf(start_date, end_date)
     
-    # Count scans by file type
+    
+    # Query scan stats
     scans_by_type = (
         db.session.query(Scan.file_type, func.count(Scan.id))
         .filter(Scan.uploaded_at >= start_date, Scan.uploaded_at <= end_date)
         .group_by(Scan.file_type)
         .all()
     )
+    
+    type_counts = {ft.lower(): count for ft, count in scans_by_type}
+
+    mri_count = type_counts.get("mr", 0)
+    ct_count = type_counts.get("ct", 0)
+    xray_count = type_counts.get("x-ray", 0)
+    pdf_count = type_counts.get("pdf", 0)
+    png_count = type_counts.get("png", 0) + type_counts.get("jpg", 0)
+
+
+    labels = [ft.upper() for ft, _ in scans_by_type]
+    data = [count for _, count in scans_by_type]
 
     # Summary counts
     today = datetime.utcnow().date()
@@ -604,9 +624,6 @@ def reports():
     weekly_count = Scan.query.filter(Scan.uploaded_at >= week_start).count()
     monthly_count = Scan.query.filter(Scan.uploaded_at >= month_start).count()
 
-    labels = [ft.upper() for ft, _ in scans_by_type]
-    data = [count for _, count in scans_by_type]
-
     return render_template(
         'reports.html',
         daily_count=daily_count,
@@ -615,6 +632,11 @@ def reports():
         scans_by_type=scans_by_type,
         labels=labels,
         data=data,
+        mri_count = mri_count,
+        ct_count = ct_count,
+        xray_count = xray_count,
+        pdf_count = pdf_count,
+        png_count = png_count,
         start_date=start_date.date(),
         end_date=end_date.date()
     )
@@ -661,6 +683,7 @@ def generate_report_pdf(start_date, end_date):
 
     filename = f"System_Report_{start_date.date()}_to_{end_date.date()}.pdf"
     return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
+    
 
     
 # Logout Route
