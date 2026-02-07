@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Patient Folder - MCH PACS{% endblock %}
+
+{% block body %}
+<div class="container" style="max-width: 600px; margin: 80px auto; background: #ffffff; padding: 25px; border-radius: 14px; box-shadow: 0 8px 20px rgba(0,0,0,0.12);">
+    <h2 style="color: #004080; font-weight: 600; margin-bottom: 10px;">Upload Patient Folder</h2>
+    <p>Select a folder containing DICOM files for this patient.</p>
+
+    <form id="uploadForm" action="{{ url_for('upload_bp.upload_folder') }}" method="POST" enctype="multipart/form-data">
+
+        <div style="margin-bottom: 20px;">
+            <label style="font-weight: 600; color: #004080; display: block; margin-bottom: 6px;">Patient ID *</label>
+            <input type="text" name="patient_id" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc;" />
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="font-weight: 600; color: #004080; display: block; margin-bottom: 6px;">Ward/Location *</label>
+            <select id="ward_id" name="ward_id" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc;">
+                <option value="">Loading wards...</option>
+            </select>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label style="font-weight: 600; color: #004080; display: block; margin-bottom: 6px;">Upload Folder *</label>
+            <div style="border: 2px dashed #004080; padding: 30px; text-align: center; border-radius: 12px; cursor: pointer;" onclick="document.getElementById('folderInput').click()">
+                <span id="folderText">Click to select folder</span>
+            </div>
+            <input 
+                id="folderInput"
+                type="file" 
+                name="files" 
+                webkitdirectory 
+                directory 
+                multiple 
+                required
+                style="display:none;"
+                onchange="updateFolderText()"
+            >
+        </div>
+
+        <button type="submit" style="margin-top: 20px; width: 100%; background: #004080; color: white; padding: 12px; border: none; border-radius: 10px; font-size: 16px; cursor: pointer;">
+            Upload Folder
+        </button>
+    </form>
+
+    <div id="uploadStatus" style="margin-top: 20px; display: none;">
+        <div style="padding: 15px; border-radius: 8px; background: #e3f2fd; color: #1976d2;">
+            <strong>Uploading...</strong>
+            <div id="progressText"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load wards on page load
+window.onload = async () => {
+    try {
+        const res = await fetch('/wards/');
+        const wards = await res.json();
+        
+        const select = document.getElementById('ward_id');
+        
+        if (wards.length === 0) {
+            select.innerHTML = '<option value="">No wards available</option>';
+            alert('No wards found. Please ask an admin to create wards first.');
+            return;
+        }
+        
+        select.innerHTML = '<option value="">Select Ward</option>';
+        
+        // Group by department
+        const byDept = {};
+        wards.forEach(ward => {
+            const dept = ward.department || 'Other';
+            if (!byDept[dept]) byDept[dept] = [];
+            byDept[dept].push(ward);
+        });
+        
+        // Add options grouped by department
+        Object.keys(byDept).sort().forEach(dept => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = dept;
+            
+            byDept[dept].forEach(ward => {
+                const option = document.createElement('option');
+                option.value = ward.id;
+                option.textContent = ward.name;
+                optgroup.appendChild(option);
+            });
+            
+            select.appendChild(optgroup);
+        });
+    } catch (error) {
+        console.error('Error loading wards:', error);
+        document.getElementById('ward_id').innerHTML = '<option value="">Error loading wards</option>';
+        alert('Failed to load wards. Please refresh the page or contact support.');
+    }
+};
+
+function updateFolderText() {
+    const input = document.getElementById('folderInput');
+    const text = document.getElementById('folderText');
+    if (input.files.length > 0) {
+        text.textContent = `${input.files.length} files selected`;
+    }
+}
+
+// Handle form submission
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const statusDiv = document.getElementById('uploadStatus');
+    const progressText = document.getElementById('progressText');
+    
+    statusDiv.style.display = 'block';
+    progressText.textContent = 'Processing files...';
+    
+    try {
+        const response = await fetch(e.target.action, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            statusDiv.style.background = '#e8f5e9';
+            statusDiv.style.color = '#2e7d32';
+            progressText.innerHTML = `
+                <strong>✅ Upload Complete!</strong><br>
+                Created: ${result.created.length} files<br>
+                Errors: ${result.errors.length}<br>
+                Patient ID: ${result.patient_id}
+            `;
+            
+            // Reset form after 3 seconds
+            setTimeout(() => {
+                e.target.reset();
+                statusDiv.style.display = 'none';
+                document.getElementById('folderText').textContent = 'Click to select folder';
+            }, 3000);
+        } else {
+            throw new Error(result.error || 'Upload failed');
+        }
+    } catch (error) {
+        statusDiv.style.background = '#ffebee';
+        statusDiv.style.color = '#c62828';
+        progressText.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<div class="worklist-container">
+    <div class="worklist-header">
+        <h1>📋 Ward Worklist</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="location.href='/'">← Back to Dashboard</button>
+            <button class="btn btn-primary" onclick="manageDepartments()">Manage Locations</button>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="filters-card">
+        <div class="filters-grid">
+            <div class="filter-group">
+                <label for="departmentFilter">🏥 Department</label>
+                <select id="departmentFilter" onchange="loadWards()">
+                    <option value="">All Departments</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="wardFilter">🛏️ Ward</label>
+                <select id="wardFilter" onchange="loadStudies()">
+                    <option value="">Select Ward</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>&nbsp;</label>
+                <button class="btn btn-primary" onclick="loadStudies()" style="width: 100%;">
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div id="statsSection" style="display: none;">
+        <div class="stats-card">
+            <h3 id="statsText">Select a ward to view studies</h3>
+        </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="table-card">
+        <table class="worklist-table">
+            <thead>
+                <tr>
+                    <th>Patient ID</th>
+                    <th>Patient Name</th>
+                    <th>Study Date</th>
+                    <th>Description</th>
+                    <th>Series</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="studiesBody">
+                <tr>
+                    <td colspan="6" class="empty-state">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 80px; height: 80px; margin: 20px auto; opacity: 0.5;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <p>Select a ward to view studies</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Transfer Patient Modal -->
+    <div id="transferModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeTransferModal()">&times;</span>
+            <h2>Transfer Patient</h2>
+            <p id="transferPatientInfo" style="color: #666; margin-bottom: 20px;"></p>
+            
+            <form id="transferForm" onsubmit="transferPatient(event)">
+                <div class="form-group">
+                    <label>Select New Ward *</label>
+                    <select id="transferWardSelect" required>
+                        <option value="">Loading wards...</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Transfer Patient</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load departments on page load
+window.onload = () => {
+    loadDepartments();
+};
+
+async function loadDepartments() {
+    try {
+        const res = await fetch('/wards/departments');
+        const departments = await res.json();
+        
+        const select = document.getElementById('departmentFilter');
+        select.innerHTML = '<option value="">All Departments</option>';
+        
+        departments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept.id;
+            option.textContent = `${dept.name} (${dept.ward_count} wards)`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading departments:', error);
+        alert('Failed to load departments');
+    }
+}
+
+async function loadWards() {
+    const deptId = document.getElementById('departmentFilter').value;
+    const url = deptId ? `/wards/?department_id=${deptId}` : '/wards/';
+    
+    try {
+        const res = await fetch(url);
+        const wards = await res.json();
+        
+        const select = document.getElementById('wardFilter');
+        select.innerHTML = '<option value="">Select Ward</option>';
+        
+        wards.forEach(ward => {
+            const option = document.createElement('option');
+            option.value = ward.id;
+            option.textContent = `${ward.name} - ${ward.patient_count} patients`;
+            select.appendChild(option);
+        });
+        
+        clearStudies();
+    } catch (error) {
+        console.error('Error loading wards:', error);
+        alert('Failed to load wards');
+    }
+}
+
+async function loadStudies() {
+    const wardId = document.getElementById('wardFilter').value;
+    if (!wardId) {
+        alert('Please select a ward');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/wards/${wardId}/studies`);
+        const data = await res.json();
+        
+        const statsSection = document.getElementById('statsSection');
+        const statsText = document.getElementById('statsText');
+        statsSection.style.display = 'block';
+        statsText.textContent = `${data.ward} - ${data.studies.length} studies found`;
+
+        const tbody = document.getElementById('studiesBody');
+        if (data.studies.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="empty-state">
+                        <p>No studies found for this ward</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = data.studies.map(study => `
+            <tr>
+                <td><strong>${study.patient_id}</strong></td>
+                <td>${study.patient_name || 'Unknown'}</td>
+                <td>${formatDate(study.study_date)}</td>
+                <td>${study.description || '-'}</td>
+                <td><span class="badge badge-primary">${study.series_count} series</span></td>
+                <td>
+                    <button class="btn-view" onclick="viewStudy('${study.study_uid}')">
+                        👁️ View
+                    </button>
+                    <button class="btn-view" onclick="showTransferModal('${study.patient_id}', '${study.patient_name || study.patient_id}')" style="background: #f59e0b;">
+                    🔄 Transfer
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading studies:', error);
+        alert('Failed to load studies');
+    }
+}
+
+function viewStudy(studyUID) {
+    window.open(`http://localhost:8081/viewer?StudyInstanceUIDs=${studyUID}`, '_blank');
+}
+
+function manageDepartments() {
+    window.location.href = '/wards/manage';
+}
+
+function clearStudies() {
+    const tbody = document.getElementById('studiesBody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="empty-state">
+                <p>Select a ward to view studies</p>
+            </td>
+        </tr>
+    `;
+    document.getElementById('statsSection').style.display = 'none';
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    if (dateStr.length === 8) {
+        return `${dateStr.substr(6,2)}/${dateStr.substr(4,2)}/${dateStr.substr(0,4)}`;
+    }
+    return dateStr;
+}
+
+let currentTransferPatientId = null;
+
+async function showTransferModal(patientId, patientName) {
+    currentTransferPatientId = patientId;
+    
+    // Update modal text
+    document.getElementById('transferPatientInfo').textContent = 
+        `Transfer ${patientName} to a different ward`;
+    
+    // Load wards for dropdown
+    await loadTransferWards();
+    
+    // Show modal
+    document.getElementById('transferModal').style.display = 'flex';
+}
+
+function closeTransferModal() {
+    document.getElementById('transferModal').style.display = 'none';
+    currentTransferPatientId = null;
+}
+
+async function loadTransferWards() {
+    try {
+        const res = await fetch('/wards/');
+        const wards = await res.json();
+        
+        const select = document.getElementById('transferWardSelect');
+        select.innerHTML = '<option value="">Select Ward</option>';
+        
+        // Group by department
+        const byDept = {};
+        wards.forEach(ward => {
+            const dept = ward.department || 'Other';
+            if (!byDept[dept]) byDept[dept] = [];
+            byDept[dept].push(ward);
+        });
+        
+        // Add options grouped by department
+        Object.keys(byDept).sort().forEach(dept => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = dept;
+            
+            byDept[dept].forEach(ward => {
+                const option = document.createElement('option');
+                option.value = ward.id;
+                option.textContent = `${ward.name} (${ward.patient_count} patients)`;
+                optgroup.appendChild(option);
+            });
+            
+            select.appendChild(optgroup);
+        });
+    } catch (error) {
+        console.error('Error loading wards for transfer:', error);
+        alert('Failed to load wards');
+    }
+}
+
+async function transferPatient(event) {
+    event.preventDefault();
+    
+    const newWardId = document.getElementById('transferWardSelect').value;
+    
+    if (!newWardId) {
+        alert('Please select a ward');
+        return;
+    }
+    
+    try {
+        // First, get the patient's database ID from patient_id
+        const patientsRes = await fetch(`/wards/patients/by-patient-id/${currentTransferPatientId}`);
+        
+        if (!patientsRes.ok) {
+            throw new Error('Patient not found');
+        }
+        
+        const patientData = await patientsRes.json();
+        
+        // Now transfer using the database ID
+        const transferRes = await fetch(`/wards/patients/${patientData.id}/transfer`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ward_id: parseInt(newWardId) })
+        });
+        
+        const result = await transferRes.json();
+        
+        if (!transferRes.ok) {
+            throw new Error(result.error || 'Transfer failed');
+        }
+        
+        alert(`✅ ${result.message}`);
+        closeTransferModal();
+        
+        // Reload studies to reflect the change
+        loadStudies();
+        
+    } catch (error) {
+        console.error('Error transferring patient:', error);
+        alert(`❌ Transfer failed: ${error.message}`);
+    }
+}
+</script>
+{% endblock %}

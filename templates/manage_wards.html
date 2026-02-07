@@ -1,0 +1,317 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Locations - MCH PACS{% endblock %}
+
+{% block body %}
+<div class="worklist-container">
+    <div class="worklist-header">
+        <h1>🏥 Manage Locations</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="location.href='/wards/worklist'">← Back to Worklist</button>
+        </div>
+    </div>
+
+    <!-- Departments Section -->
+    <div class="management-section">
+        <div class="section-header">
+            <h2>Departments</h2>
+            <button class="btn btn-primary" onclick="showAddDepartmentModal()">+ Add Department</button>
+        </div>
+        
+        <div class="table-card">
+            <table class="worklist-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Wards</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="departmentsTable">
+                    <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Wards Section -->
+    <div class="management-section">
+        <div class="section-header">
+            <h2>Wards</h2>
+            <button class="btn btn-primary" onclick="showAddWardModal()">+ Add Ward</button>
+        </div>
+        
+        <div class="table-card">
+            <table class="worklist-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Code</th>
+                        <th>Department</th>
+                        <th>Patients</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="wardsTable">
+                    <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add Department Modal -->
+<div id="addDeptModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('addDeptModal')">&times;</span>
+        <h2>Add Department</h2>
+        <form id="addDeptForm" onsubmit="addDepartment(event)">
+            <div class="form-group">
+                <label>Department Name *</label>
+                <input type="text" id="deptName" required>
+            </div>
+            <div class="form-group">
+                <label>Department Code *</label>
+                <input type="text" id="deptCode" required>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="deptDesc" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Department</button>
+        </form>
+    </div>
+</div>
+
+<!-- Add Ward Modal -->
+<div id="addWardModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('addWardModal')">&times;</span>
+        <h2>Add Ward</h2>
+        <form id="addWardForm" onsubmit="addWard(event)">
+            <div class="form-group">
+                <label>Ward Name *</label>
+                <input type="text" id="wardName" required>
+            </div>
+            <div class="form-group">
+                <label>Ward Code *</label>
+                <input type="text" id="wardCode" required>
+            </div>
+            <div class="form-group">
+                <label>Department *</label>
+                <select id="wardDept" required>
+                    <option value="">Select Department</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Ward</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Load data on page load
+window.onload = () => {
+    loadDepartmentsTable();
+    loadWardsTable();
+    loadDepartmentsDropdown();
+};
+
+async function loadDepartmentsTable() {
+    try {
+        const res = await fetch('/wards/departments');
+        const departments = await res.json();
+        
+        const tbody = document.getElementById('departmentsTable');
+        if (departments.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No departments found</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = departments.map(dept => `
+            <tr>
+                <td><strong>${dept.name}</strong></td>
+                <td>${dept.code}</td>
+                <td>${dept.ward_count} wards</td>
+                <td>
+                    <button class="btn-view" onclick="deleteDepartment(${dept.id}, '${dept.name}')">
+                        🗑️ Delete
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading departments:', error);
+        alert('Failed to load departments');
+    }
+}
+
+async function loadWardsTable() {
+    try {
+        const res = await fetch('/wards/');
+        const wards = await res.json();
+        
+        const tbody = document.getElementById('wardsTable');
+        if (wards.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No wards found</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = wards.map(ward => `
+            <tr>
+                <td><strong>${ward.name}</strong></td>
+                <td>${ward.code}</td>
+                <td>${ward.department || 'N/A'}</td>
+                <td>${ward.patient_count} patients</td>
+                <td>
+                    <button class="btn-view" onclick="deleteWard(${ward.id}, '${ward.name}')">
+                        🗑️ Delete
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading wards:', error);
+        alert('Failed to load wards');
+    }
+}
+
+async function loadDepartmentsDropdown() {
+    try {
+        const res = await fetch('/wards/departments');
+        const departments = await res.json();
+        
+        const select = document.getElementById('wardDept');
+        select.innerHTML = '<option value="">Select Department</option>';
+        
+        departments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept.id;
+            option.textContent = dept.name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading departments dropdown:', error);
+    }
+}
+
+function showAddDepartmentModal() {
+    document.getElementById('addDeptModal').style.display = 'flex';
+}
+
+function showAddWardModal() {
+    document.getElementById('addWardModal').style.display = 'flex';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+async function addDepartment(event) {
+    event.preventDefault();
+    
+    const data = {
+        name: document.getElementById('deptName').value,
+        code: document.getElementById('deptCode').value,
+        description: document.getElementById('deptDesc').value
+    };
+    
+    try {
+        const res = await fetch('/wards/departments', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (!res.ok) {
+            const error = await res.json();
+            alert(error.error || 'Failed to add department');
+            return;
+        }
+        
+        alert('Department added successfully!');
+        closeModal('addDeptModal');
+        document.getElementById('addDeptForm').reset();
+        loadDepartmentsTable();
+        loadDepartmentsDropdown();
+    } catch (error) {
+        console.error('Error adding department:', error);
+        alert('Failed to add department');
+    }
+}
+
+async function addWard(event) {
+    event.preventDefault();
+    
+    const data = {
+        name: document.getElementById('wardName').value,
+        code: document.getElementById('wardCode').value,
+        department_id: parseInt(document.getElementById('wardDept').value)
+    };
+    
+    try {
+        const res = await fetch('/wards/wards', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (!res.ok) {
+            const error = await res.json();
+            alert(error.error || 'Failed to add ward');
+            return;
+        }
+        
+        alert('Ward added successfully!');
+        closeModal('addWardModal');
+        document.getElementById('addWardForm').reset();
+        loadWardsTable();
+    } catch (error) {
+        console.error('Error adding ward:', error);
+        alert('Failed to add ward');
+    }
+}
+
+async function deleteDepartment(id, name) {
+    if (!confirm(`Delete department "${name}"?`)) return;
+    
+    try {
+        const res = await fetch(`/wards/departments/${id}`, {method: 'DELETE'});
+        
+        if (!res.ok) {
+            const error = await res.json();
+            alert(error.error || 'Failed to delete department');
+            return;
+        }
+        
+        alert('Department deleted!');
+        loadDepartmentsTable();
+        loadDepartmentsDropdown();
+    } catch (error) {
+        console.error('Error deleting department:', error);
+        alert('Failed to delete department');
+    }
+}
+
+async function deleteWard(id, name) {
+    if (!confirm(`Delete ward "${name}"?`)) return;
+    
+    try {
+        const res = await fetch(`/wards/wards/${id}`, {method: 'DELETE'});
+        
+        if (!res.ok) {
+            const error = await res.json();
+            alert(error.error || 'Failed to delete ward');
+            return;
+        }
+        
+        alert('Ward deleted!');
+        loadWardsTable();
+    } catch (error) {
+        console.error('Error deleting ward:', error);
+        alert('Failed to delete ward');
+    }
+}
+</script>
+
+{% endblock %}

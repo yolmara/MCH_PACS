@@ -10,16 +10,36 @@
 <body>
     <header>
     <div class="logo">
-        <a href="{{ url_for('home_page') }}"><img src="{{ url_for('static', filename='images/mpilo_logo_200px.png') }}" alt="Mpilo Logo"></a>
+        <a href="{{ url_for('home_bp.home_page') }}">
+            <img src="{{ url_for('static', filename='images/mpilo_logo_200px.png') }}" alt="Mpilo Logo">
+        </a>
         <span class="hospital-name">Mpilo Central Hospital</span>
     </div>
     <nav>
-        <a href="/home">Home</a>
-        <a href="{{url_for('add_patient')}}">Add Patient</a>
-        <a href="{{ url_for('upload_scan') }}">Upload Record</a>
-        <a href="{{ url_for('view_records') }}">View Records</a>
-        <a href="{{ url_for('reports') }}"> Reports</a>
-        <a href="{{ url_for('logout') }}" class="logout-button">🚪Logout</a>
+        <a href="{{ url_for('home_bp.home_page') }}">Dashboard</a>
+    
+        {% if session.get('role') in ['technician', 'admin'] %}
+            <a href="{{ url_for('upload_bp.upload_folder_page') }}">Upload Folder</a>
+        {% endif %}
+        
+        {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
+            <a href="{{ url_for('wards_bp.worklist_page') }}">Ward Worklist</a>
+        {% endif %}
+        
+        {% if session.get('role') == 'admin' %}
+            <a href="{{ url_for('wards_bp.manage_page') }}">Manage Wards</a>
+            <a href="{{ url_for('auth_bp.manage_users') }}">👥 Manage Users</a>
+        {% endif %}
+        
+        {% if session.get('user_id') %}
+            <span style="color: #81beff; margin-left: 20px;">
+                👤 {{ session.get('full_name', 'User') }} 
+                <small>({{ session.get('role', 'user') }})</small>
+            </span>
+            <a href="{{ url_for('auth_bp.logout') }}" class="logout-button">🚪 Logout</a>
+        {% else %}
+            <a href="{{ url_for('auth_bp.login') }}">Login</a>
+        {% endif %}
     </nav>
     </header>
     {% block body %}{% endblock %}

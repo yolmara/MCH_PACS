@@ -1,3 +1,16 @@
 .env
 __pycache__/
 *.pyc
+*.log
+*.sqlite3
+*.sql
+
+node_modules/
+static/ohif/
+static/ohif-viewer/
+static/uploads/
+frontend/
+
+.vscode/
+venv/
+.venv/

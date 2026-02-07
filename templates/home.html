@@ -1,26 +1,62 @@
 {% extends 'base.html' %}
 
-{% block title %}MCH PACS System{% endblock %}
+{% block title %}Dashboard - MCH PACS {% endblock %}
 
 {% block body %}
 <main>
     <section class="intro">
-        <h1>Welcome to the Mpilo Central Hospital (PACS) System </h1>
-        <p>This portal allows authorized medical staff to access patient records</p>
+        <h1>Welcome to the Mpilo Central Hospital (PACS) System</h1>
+        <p>Logged in as: <strong>{{ session.get('full_name', 'User') }}</strong> ({{ session.get('role', 'user') }})</p>
     </section>
 
     <section class="features">
-        <a href="{{ url_for('upload_scan') }}" class="feature-box">📁 Upload Old Records</a>
-        <a href="{{ url_for('search_patient') }}" class="feature-box">🔍 Search Patient Files</a>
-        <a href="{{ url_for('view_images') }}" class="feature-box">🖼️ View Archived Images</a>
-        <a href="{{ url_for('list_patients') }}" class="feature-box">📋 Patient List</a>
+        <!-- Upload (Technicians & Admins only) -->
+        {% if session.get('role') in ['technician', 'admin'] %}
+        <a href="{{ url_for('upload_bp.upload_folder_page') }}" class="feature-box">
+            📁 Upload Folder
+        </a>
+        {% endif %}
+
+        <!-- DICOM Viewer (All users) -->
+        <a href="{{ url_for('dicom_bp.ohif_viewer') }}" class="feature-box">
+            🖼️ DICOM Viewer
+        </a>
+
+        <!-- Ward Worklist (Radiologists, Technicians, Admins) -->
+        {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
+        <a href="{{ url_for('wards_bp.worklist_page') }}" class="feature-box">
+            📋 Ward Worklist
+        </a>
+        {% endif %}
+
+        <!-- Reports (Radiologists & Admins) -->
+        {% if session.get('role') in ['radiologist', 'admin'] %}
+        <a href="{{ url_for('ris_bp.worklist') }}" class="feature-box">🩻 RIS Module</a>
+        {% endif %}
+
+        <!-- Manage Wards (Admins only) -->
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('wards_bp.manage_page') }}" class="feature-box">
+            🏥 Manage Wards
+        </a>
+
+        <!-- Manage Users (Admins only) -->
+        <a href="{{ url_for('auth_bp.manage_users') }}" class="feature-box">
+            👥 Manage Users
+        </a>
+
+        <!-- Activity Logs (Admins only) -->
+        <a href="{{ url_for('auth_bp.activity_logs') }}" class="feature-box">
+            📊 Activity Logs
+        </a>
+        {% endif %}
+
+        <!-- Patient List (Clerks & Admins) -->
+        {% if session.get('role') in ['clerk', 'admin'] %}
+        <a href="#" class="feature-box">
+            📋 Patient List
+        </a>
+        {% endif %}
     </section>
-    {% if current_user.is_authenticated and current_user.role == 'admin' %}
-        <section class="features">
-            <a href="{{ url_for('manage_users') }}" class="feature-box">👥 Manage Users</a>
-            <a href="{{ url_for('activity_logs') }}" class="feature-box">👨‍💻 View Activity Logs</a>
-            <a href="{{ url_for('scan_stats') }}" class="feature-box">📊 Scan Statistics</a>
-        </section>
-    {% endif %}
 </main>
 {% endblock %}

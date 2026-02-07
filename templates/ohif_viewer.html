@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+<!-- templates/ohif_viewer.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>OHIF Viewer - Study {{ study_uid }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Option A: OHIF from CDN (quick test). Option B: self-host OHIF build in static/ -->
+  <link rel="stylesheet" href="https://unpkg.com/@ohif/viewer/dist/index.css">
+  <script src="https://unpkg.com/@ohif/viewer/dist/index.umd.js"></script>
+  <style>
+    html,body,#root { height: 100%; margin:0; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    (function(){
+      const studyUID = "{{ study_uid }}";
+
+      // We will provide a manifest URL to OHIF (lightweight approach)
+      const manifestUrl = `/dicom/studies/${studyUID}/manifest`;
+
+      // OHIF viewer config (lightweight): use "customData" loader that reads the manifest URL
+      // The exact OHIF init can vary by version; this is a minimal approach.
+      const config = {
+        // viewer config structure depends on OHIF version; this example uses the UMD installer
+        dataSources: [
+          {
+            name: "Local PACS",
+            sourceType: "dicomJson",
+            // Supply studies array: OHIF will request each URL you provide
+            studies: [manifestUrl],
+            // Optionally set other fields depending on OHIF version
+          }
+        ],
+      };
+
+      // For UMD bundle
+      if (window.OHIF && window.OHIF.viewer) {
+        // if using a recent OHIF UMD build:
+        window.OHIF.viewer.default(config, document.getElementById('root'));
+      } else if (window.OHIFViewer && window.OHIFViewer.installViewer) {
+        // fallback for other builds
+        window.OHIFViewer.installViewer(document.getElementById('root'), {
+          dataSources: { dicomjson: [ { studies: [manifestUrl] } ] }
+        });
+      } else {
+        document.getElementById('root').innerText = 'OHIF viewer not loaded; check console for errors.';
+      }
+    })();
+  </script>
+</body>
+</html>
+

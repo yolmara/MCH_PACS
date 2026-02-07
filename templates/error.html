@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Error - MCH PACS{% endblock %}
+
+{% block body %}
+<div style="text-align: center; padding: 100px 20px;">
+    <h1 style="font-size: 72px; color: #e74c3c;">⛔</h1>
+    <h2 style="color: #333;">{{ message or 'An error occurred' }}</h2>
+    <p style="color: #666; margin: 20px 0;">You don't have permission to access this page.</p>
+    <button class="btn btn-primary" onclick="location.href='{{ url_for('home_bp.home_page') }}'">
+        ← Go to Dashboard
+    </button>
+</div>
+{% endblock %}
