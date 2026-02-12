@@ -32,33 +32,38 @@
         <div class="action-grid">
         {% if session.get('role') in ['technician', 'admin'] %}
         <a href="{{ url_for('upload_bp.upload_folder_page') }}" class="action-card">
-            <span>Upload Folder</span>
+            <span>📂 Upload Folder</span>
             <small>Import new DICOM folder studies</small>
         </a>
         {% endif %}
 
         <a href="{{ url_for('dicom_bp.ohif_viewer') }}" class="action-card">
-            <span>DICOM Viewer</span>
+            <span>🩻 DICOM Viewer</span>
             <small>Open OHIF viewer for study review</small>
+        </a>
+
+        <a href="{{ url_for('home_bp.stats_dashboard') }}" class="action-card">
+            <span>📊 Scan Statistics</span>
+            <small>View trends by modality, ward, and report status</small>
         </a>
 
         {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
         <a href="{{ url_for('wards_bp.worklist_page') }}" class="action-card">
-            <span>Ward Worklist</span>
+            <span>🏥 Ward Worklist</span>
             <small>Review and prioritize ward imaging</small>
         </a>
         {% endif %}
 
         {% if session.get('role') in ['radiologist', 'admin'] %}
         <a href="{{ url_for('ris_bp.worklist') }}" class="action-card">
-            <span>RIS Module</span>
+            <span>☢️ RIS Module</span>
             <small>Orders, reports and interpretation</small>
         </a>
         {% endif %}
 
         {% if session.get('role') in ['clerk', 'admin'] %}
         <a href="{{ url_for('patients_bp.patients_list') }}" class="action-card">
-            <span>Patient List</span>
+            <span>📋 Patient List</span>
             <small>Search, review and maintain records</small>
         </a>
         {% endif %}
@@ -70,15 +75,15 @@
         <h2>Administration</h2>
         <div class="action-grid admin-grid">
             <a href="{{ url_for('wards_bp.manage_page') }}" class="action-card">
-                <span>Manage Wards</span>
+                <span>🏢 Manage Wards</span>
                 <small>Configure wards and departments</small>
             </a>
             <a href="{{ url_for('auth_bp.manage_users') }}" class="action-card">
-                <span>Manage Users</span>
+                <span>👥 Manage Users</span>
                 <small>Provision and control system access</small>
             </a>
             <a href="{{ url_for('auth_bp.activity_logs') }}" class="action-card">
-                <span>Activity Logs</span>
+                <span>📜 Activity Logs</span>
                 <small>Audit key user and system events</small>
             </a>
         </div>

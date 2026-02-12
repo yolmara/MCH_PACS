@@ -23,6 +23,7 @@
 
     <nav class="main-nav">
         <a href="{{ url_for('home_bp.home_page') }}" class="{{ 'active' if current_path == '/' else '' }}">Dashboard</a>
+        <a href="{{ url_for('home_bp.stats_dashboard') }}" class="{{ 'active' if current_path.startswith('/stats') else '' }}">Scan Stats</a>
 
         {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
             <a href="{{ url_for('wards_bp.worklist_page') }}" class="{{ 'active' if current_path.startswith('/wards/worklist') else '' }}">Ward Worklist</a>

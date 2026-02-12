@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session, current_app
 from Blueprints.auth.routes import login_required
 from models import db, ExamOrder, Patient, Ward, User, Series
 from datetime import datetime
@@ -31,7 +31,7 @@ def create_order(patient_id):
         order = ExamOrder(
             order_number=order_number,
             patient_id_fk=patient.id,
-            ordering_doctor_id=request.user_id,  # From login_required
+            ordering_doctor_id=session.get("user_id"),
             ordering_doctor_name=request.form.get("doctor_name"),
             exam_type=request.form.get("exam_type"),
             body_part=request.form.get("body_part"),
@@ -114,24 +114,30 @@ def create_report(study_id):
     study = Study.query.get_or_404(study_id)
     
     if request.method == "POST":
-        report = RadiologyReport(
-            study_id_fk=study.id,
-            radiologist_id=request.user_id,
-            radiologist_name=request.form.get("radiologist_name"),
-            findings=request.form.get("findings"),
-            impression=request.form.get("impression"),
-            recommendations=request.form.get("recommendations"),
-            status=request.form.get("status", "draft")
-        )
-        
-        if report.status == "final":
-            report.finalized_at = datetime.now()
-        
-        db.session.add(report)
-        db.session.commit()
-        
-        flash("Report saved successfully!", "success")
-        return redirect(url_for("ris_bp.view_report", report_id=report.id))
+        try:
+            report = RadiologyReport(
+                study_id_fk=study.id,
+                radiologist_id=session.get("user_id"),
+                radiologist_name=request.form.get("radiologist_name") or session.get("full_name"),
+                findings=request.form.get("findings"),
+                impression=request.form.get("impression"),
+                recommendations=request.form.get("recommendations"),
+                status=request.form.get("status", "draft")
+            )
+            
+            if report.status == "final":
+                report.finalized_at = datetime.now()
+            
+            db.session.add(report)
+            db.session.commit()
+            
+            flash("Report saved successfully!", "success")
+            return redirect(url_for("ris_bp.view_report", report_id=report.id))
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception("Failed to save report for study %s", study_id)
+            flash("Failed to save report. Please try again.", "error")
+            return render_template("ris/report_form.html", study=study, report=None), 500
     
     # GET - show form
     return render_template("ris/report_form.html", study=study)

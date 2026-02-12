@@ -15,12 +15,14 @@ def ohif_viewer():
     /viewer?StudyInstanceUID=1.2.840...
     """
     study_uid = request.args.get("StudyInstanceUID")
+    ohif_base_url = current_app.config.get("OHIF_VIEWER_URL", "http://localhost:8080").rstrip("/")
 
+    # Dashboard access (no study selected yet): open OHIF landing page.
     if not study_uid:
-        return "StudyInstanceUID required", 400
+        return redirect(f"{ohif_base_url}/")
 
-    # Redirect to the built OHIF viewer with the study UID
-    return redirect(f"/ohif-viewer/viewer/mch_pacs?StudyInstanceUID={study_uid}")
+    # Study-specific launch
+    return redirect(f"{ohif_base_url}/?StudyInstanceUIDs={study_uid}")
 
 
 ######### Studies Route ##########
@@ -84,4 +86,3 @@ def serve_instance_file(instance_id):
         return "Not found", 404
     # Optionally check current_user permissions here
     return current_app.send_static_file(os.path.relpath(inst.file_path, current_app.static_folder))
-

@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}Scan Statistics - MCH PACS{% endblock %}
+
+{% block body %}
+<main class="stats-main">
+    <section class="stats-hero">
+        <div>
+            <h1>Scan Statistics Dashboard</h1>
+            <p>Operational view of modality mix, reporting workload, and study throughput.</p>
+        </div>
+    </section>
+
+    <section class="stats-kpi-grid">
+        <article class="stats-kpi-card">
+            <h3>Patients</h3>
+            <p>{{ kpis.patients }}</p>
+        </article>
+        <article class="stats-kpi-card">
+            <h3>Studies</h3>
+            <p>{{ kpis.studies }}</p>
+        </article>
+        <article class="stats-kpi-card">
+            <h3>Series</h3>
+            <p>{{ kpis.series }}</p>
+        </article>
+        <article class="stats-kpi-card">
+            <h3>Instances</h3>
+            <p>{{ kpis.instances }}</p>
+        </article>
+        <article class="stats-kpi-card">
+            <h3>Pending Reports</h3>
+            <p>{{ kpis.pending_reports }}</p>
+        </article>
+        <article class="stats-kpi-card">
+            <h3>Avg Inst/Study</h3>
+            <p>{{ kpis.avg_instances_per_study }}</p>
+        </article>
+    </section>
+
+    <section class="stats-dashboard-grid">
+        <article class="stats-panel">
+            <h2>Modalities</h2>
+            <div class="bars-wrap">
+                {% set max_modality = (modality_counts | map(attribute='count') | max) if modality_counts else 1 %}
+                {% for item in modality_counts %}
+                <div class="bar-row">
+                    <span class="bar-label">{{ item.label }}</span>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: {{ (item.count / max_modality * 100) if max_modality else 0 }}%;"></div>
+                    </div>
+                    <span class="bar-value">{{ item.count }}</span>
+                </div>
+                {% else %}
+                <p class="stats-empty">No modality data available.</p>
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="stats-panel">
+            <h2>Studies (Last 14 Days)</h2>
+            <div class="trend-chart" id="trendChart"></div>
+            <div class="trend-axis">
+                <span>{{ studies_trend[0].date if studies_trend else '' }}</span>
+                <span>{{ studies_trend[-1].date if studies_trend else '' }}</span>
+            </div>
+        </article>
+
+        <article class="stats-panel">
+            <h2>Studies by Ward</h2>
+            <div class="donut-wrap">
+                <div id="wardDonut" class="stats-donut" aria-label="Ward distribution"></div>
+                <div id="wardLegend" class="stats-legend"></div>
+            </div>
+        </article>
+
+        <article class="stats-panel">
+            <h2>Report Status</h2>
+            <div class="donut-wrap">
+                <div id="reportDonut" class="stats-donut" aria-label="Report status distribution"></div>
+                <div id="reportLegend" class="stats-legend"></div>
+            </div>
+        </article>
+    </section>
+</main>
+
+<script>
+const trendData = {{ studies_trend | tojson }};
+const wardData = {{ ward_counts | tojson }};
+const reportData = {{ report_status_counts | tojson }};
+
+function renderTrendChart() {
+    const container = document.getElementById('trendChart');
+    if (!container) return;
+
+    const maxValue = Math.max(...trendData.map(d => d.count), 1);
+    container.innerHTML = trendData.map(item => {
+        const h = Math.max((item.count / maxValue) * 100, item.count > 0 ? 8 : 2);
+        return `<div class="trend-col" title="${item.date}: ${item.count}">
+                    <div class="trend-bar" style="height:${h}%"></div>
+                </div>`;
+    }).join('');
+}
+
+function renderDonut(data, donutId, legendId) {
+    const donut = document.getElementById(donutId);
+    const legend = document.getElementById(legendId);
+    if (!donut || !legend) return;
+
+    const colors = ['#0f4d8c', '#1b6fbf', '#2a8ed9', '#4eb3f2', '#7fc6f8', '#9fd4fa', '#c0e3fc'];
+    const total = data.reduce((sum, x) => sum + x.count, 0);
+
+    if (!total) {
+        donut.style.background = '#e6eef7';
+        legend.innerHTML = '<p class="stats-empty">No data available.</p>';
+        return;
+    }
+
+    let cursor = 0;
+    const slices = data.map((item, i) => {
+        const pct = (item.count / total) * 100;
+        const start = cursor;
+        cursor += pct;
+        const color = colors[i % colors.length];
+        return { ...item, color, start, end: cursor, pct };
+    });
+
+    donut.style.background = `conic-gradient(${slices.map(s => `${s.color} ${s.start}% ${s.end}%`).join(',')})`;
+
+    legend.innerHTML = slices.map(s =>
+        `<div class="legend-row">
+            <span class="legend-dot" style="background:${s.color};"></span>
+            <span class="legend-label">${s.label}</span>
+            <span class="legend-value">${s.count}</span>
+        </div>`
+    ).join('');
+}
+
+renderTrendChart();
+renderDonut(wardData, 'wardDonut', 'wardLegend');
+renderDonut(reportData, 'reportDonut', 'reportLegend');
+</script>
+{% endblock %}

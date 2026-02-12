@@ -1,94 +1,75 @@
-<!DOCTYPE html>
-<head>
-    <title>Radiologist Worklist - MCH PACS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <img src="{{ url_for('static', filename='images/mpilo_logo_200px.png') }}" alt="MCH Logo">
-            </div>
-            <h1>Radiologist Worklist</h1>
-                <nav>
-                    <a href="{{ url_for('home_bp.home_page') }}">Dashboard</a>
-                    <a href="{{ url_for('ris_bp.list_orders') }}">Orders</a>
-                    <a href="{{ url_for('auth_bp.logout') }}">Logout</a>
-                </nav>
-        </header>
+{% extends 'base.html' %}
 
-        <main>
-            <div class="page-header">
-                <h2>Studies Needing Reports</h2>
-            </div>
+{% block title %}Radiologist Worklist - MCH PACS{% endblock %}
 
-            <!-- Filters -->
-            <div class="filters">
-                <form method="GET" class="filter-form">
-                    <select name="ward_id" onchange="this.form.submit()">
-                        <option value="">All Wards</option>
-                        {% for ward in wards %}
-                        <option value="{{ ward.id }}" {% if request.args.get('ward_id') == ward.id|string %}selected{% endif %}>
-                            {{ ward.ward_name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-
-                    <select name="modality" onchange="this.form.submit()">
-                        <option value="">All Modalities</option>
-                        <option value="CT" {% if request.args.get('modality') == 'CT' %}selected{% endif %}>CT</option>
-                        <option value="MRI" {% if request.args.get('modality') == 'MRI' %}selected{% endif %}>MRI</option>
-                        <option value="XR" {% if request.args.get('modality') == 'XR' %}selected{% endif %}>X-Ray</option>
-                        <option value="US" {% if request.args.get('modality') == 'US' %}selected{% endif %}>Ultrasound</option>
-                    </select>
-
-                    <a href="{{ url_for('ris_bp.worklist') }}" class="btn btn-secondary">Clear Filters</a>
-                </form>
-            </div>
-
-            <div class="table-card">
-                <table class="worklist-table">
-                    <thead>
-                        <tr>
-                            <th>Patient ID</th>
-                            <th>Patient Name</th>
-                            <th>Study Date</th>
-                            <th>Modality</th>
-                            <th>Description</th>
-                            <th>Ward</th>
-                            <th>Instances</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for study in studies %}
-                        <tr>
-                            <td>{{ study.patient.patient_id }}</td>
-                            <td>{{ study.patient.patient_name or 'N/A' }}</td>
-                            <td>{{ study.study_date }}</td>
-                            <td>
-                                {% set modalities = study.series | map(attribute='modality') | list | unique | join(', ') %}
-                                {{ modalities }}
-                            </td>
-                            <td>{{ study.description or 'N/A' }}</td>
-                            <td>{{ study.patient.ward.ward_name if study.patient.ward else 'N/A' }}</td>
-                            <td>{{ study.series | map(attribute='instances') | map('length') | sum }}</td>
-                            <td>
-                                <a href="/ohif?StudyInstanceUID={{ study.study_instance_uid }}" 
-                                class="btn btn-sm" target="_blank">View Images</a>
-                                <a href="{{ url_for('ris_bp.create_report', study_id=study.id) }}" 
-                                class="btn btn-sm btn-primary">Write Report</a>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="8" style="text-align:center;">No studies pending reports</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </main>
+{% block body %}
+<main class="worklist-container">
+    <div class="page-header">
+        <h2>Studies Needing Reports</h2>
     </div>
-</body>
-</html>
+
+    <div class="filters">
+        <form method="GET" class="filter-form">
+            <select name="ward_id" onchange="this.form.submit()">
+                <option value="">All Wards</option>
+                {% for ward in wards %}
+                <option value="{{ ward.id }}" {% if request.args.get('ward_id') == ward.id|string %}selected{% endif %}>
+                    {{ ward.ward_name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="modality" onchange="this.form.submit()">
+                <option value="">All Modalities</option>
+                <option value="CT" {% if request.args.get('modality') == 'CT' %}selected{% endif %}>CT</option>
+                <option value="MRI" {% if request.args.get('modality') == 'MRI' %}selected{% endif %}>MRI</option>
+                <option value="XR" {% if request.args.get('modality') == 'XR' %}selected{% endif %}>X-Ray</option>
+                <option value="US" {% if request.args.get('modality') == 'US' %}selected{% endif %}>Ultrasound</option>
+            </select>
+
+            <a href="{{ url_for('ris_bp.worklist') }}" class="btn btn-secondary">Clear Filters</a>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <table class="worklist-table">
+            <thead>
+                <tr>
+                    <th>Patient ID</th>
+                    <th>Patient Name</th>
+                    <th>Study Date</th>
+                    <th>Modality</th>
+                    <th>Description</th>
+                    <th>Ward</th>
+                    <th>Instances</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for study in studies %}
+                <tr>
+                    <td>{{ study.patient.patient_id }}</td>
+                    <td>{{ study.patient.patient_name or 'N/A' }}</td>
+                    <td>{{ study.study_date }}</td>
+                    <td>
+                        {% set modalities = study.series | map(attribute='modality') | list | unique | join(', ') %}
+                        {{ modalities }}
+                    </td>
+                    <td>{{ study.description or 'N/A' }}</td>
+                    <td>{{ study.patient.ward.ward_name if study.patient.ward else 'N/A' }}</td>
+                    <td>{{ study.series | map(attribute='instances') | map('length') | sum }}</td>
+                    <td>
+                        <a href="/ohif?StudyInstanceUID={{ study.study_instance_uid }}" class="btn btn-sm" target="_blank">View Images</a>
+                        <a href="{{ url_for('ris_bp.create_report', study_id=study.id) }}" class="btn btn-sm btn-primary">Write Report</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align:center;">No studies pending reports</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+{% endblock %}

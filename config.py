@@ -15,3 +15,6 @@ class Config:
     UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static', 'uploads')
 
     MAX_CONTENT_LENGTH = 8 * 1024 * 1024 * 1024
+
+    # External OHIF entrypoint used for dashboard/viewer redirects
+    OHIF_VIEWER_URL = os.environ.get("OHIF_VIEWER_URL", "http://localhost:8080").rstrip("/")

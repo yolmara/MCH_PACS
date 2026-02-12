@@ -1,305 +1,139 @@
-<!DOCTYPE html>
-<head>
-    <title>{% if report %}Edit{% else %}New{% endif %} Radiology Report - MCH PACS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <img src="{{ url_for('static', filename='images/mpilo_logo_200px.png') }}" alt="MCH Logo">
-            </div>
-            <h1>{% if report %}Edit{% else %}New{% endif %} Radiology Report</h1>
-                <nav>
-                    <a href="{{ url_for('ris_bp.worklist') }}">Back to Worklist</a>
-                    <a href="{{ url_for('home_bp.home_page') }}">Dashboard</a>
-                </nav>
-        </header>
+{% extends 'base.html' %}
 
-        <main>
-            <div class="report-container">
-                <!-- Study Info Panel -->
-                <div class="study-info">
-                    <h3>Study Information</h3>
-                    <div class="info-grid">
-                        <div><strong>Patient ID:</strong> {{ study.patient.patient_id }}</div>
-                        <div><strong>Patient Name:</strong> {{ study.patient.patient_name or 'N/A' }}</div>
-                        <div><strong>Study Date:</strong> {{ study.study_date }}</div>
-                        <div><strong>Study UID:</strong> {{ study.study_instance_uid[:30] }}...</div>
-                        <div><strong>Description:</strong> {{ study.description or 'N/A' }}</div>
-                    </div>
-                    <div class="viewer-link">
-                        <a href="http://localhost:8080/?StudyInstanceUIDs={{ study.study_instance_uid }}" 
-                           target="_blank" class="btn btn-primary">
-                           🖼️ Open Images in OHIF Viewer
-                        </a>
-                    </div>
+{% block title %}{% if report %}Edit{% else %}New{% endif %} Radiology Report - MCH PACS{% endblock %}
+
+{% block body %}
+<main class="ris-report-page">
+    <div class="ris-report-container">
+        <div class="ris-study-info">
+            <h3>Study Information</h3>
+            <div class="ris-info-grid">
+                <div><strong>Patient ID:</strong> {{ study.patient.patient_id }}</div>
+                <div><strong>Patient Name:</strong> {{ study.patient.patient_name or 'N/A' }}</div>
+                <div><strong>Study Date:</strong> {{ study.study_date }}</div>
+                <div><strong>Study UID:</strong> {{ study.study_instance_uid[:30] }}...</div>
+                <div><strong>Description:</strong> {{ study.description or 'N/A' }}</div>
+            </div>
+            <div class="ris-viewer-link">
+                <a href="{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=study.study_instance_uid) }}" target="_blank" class="btn btn-primary">
+                    Open Images in OHIF Viewer
+                </a>
+            </div>
+        </div>
+
+        <div class="ris-report-form">
+            <h2>{% if report %}Edit{% else %}New{% endif %} Radiology Report</h2>
+            <form method="POST" id="reportForm">
+                <div class="form-group">
+                    <label for="radiologist_name">Radiologist Name: *</label>
+                    <input
+                        type="text"
+                        id="radiologist_name"
+                        name="radiologist_name"
+                        value="{{ report.radiologist_name if report else session.get('full_name', '') }}"
+                        required
+                    >
                 </div>
 
-                <!-- Report Form -->
-                <div class="report-form">
-                    <form method="POST">
-                        <div class="form-group">
-                            <label for="radiologist_name">Radiologist Name: *</label>
-                            <input type="text" id="radiologist_name" name="radiologist_name" 
-                                   value="{{ report.radiologist_name if report else '' }}" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="template">Load Template:</label>
-                            <select id="template" onchange="loadTemplate(this.value)">
-                                <option value="">-- Select Template --</option>
-                                <option value="ct_head">CT Head</option>
-                                <option value="chest_xray">Chest X-Ray</option>
-                                <option value="abdomen_ct">Abdomen/Pelvis CT</option>
-                                <option value="generic">Generic</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="findings">Findings: *</label>
-                            <textarea id="findings" name="findings" rows="10" required>{{ report.findings if report else '' }}</textarea>
-                            <small>Describe anatomical observations and abnormalities</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="impression">Impression/Conclusion: *</label>
-                            <textarea id="impression" name="impression" rows="5" required>{{ report.impression if report else '' }}</textarea>
-                            <small>Summary and clinical significance</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="recommendations">Recommendations:</label>
-                            <textarea id="recommendations" name="recommendations" rows="3">{{ report.recommendations if report else '' }}</textarea>
-                            <small>Follow-up imaging or clinical actions</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="status">Report Status: *</label>
-                            <select id="status" name="status" required>
-                                <option value="draft" {% if not report or report.status == 'draft' %}selected{% endif %}>Draft</option>
-                                <option value="final" {% if report and report.status == 'final' %}selected{% endif %}>Final</option>
-                                <option value="signed" {% if report and report.status == 'signed' %}selected{% endif %}>Signed</option>
-                            </select>
-                            <small>⚠️ Final and Signed reports cannot be edited</small>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">💾 Save Report</button>
-                            <button type="button" onclick="saveDraft()" class="btn btn-secondary">📝 Save as Draft</button>
-                            <button type="button" onclick="shareReport()" class="btn btn-share">📤 Share</button>
-                            <a href="{{ url_for('ris_bp.worklist') }}" class="btn btn-tertiary">Cancel</a>
-                        </div>
-                    </form>
+                <div class="form-group">
+                    <label for="template">Load Template:</label>
+                    <select id="template" onchange="loadTemplate(this.value)">
+                        <option value="">-- Select Template --</option>
+                        <option value="ct_head">CT Head</option>
+                        <option value="chest_xray">Chest X-Ray</option>
+                        <option value="abdomen_ct">Abdomen/Pelvis CT</option>
+                        <option value="generic">Generic</option>
+                    </select>
                 </div>
-            </div>
-        </main>
+
+                <div class="form-group">
+                    <label for="findings">Findings: *</label>
+                    <textarea id="findings" name="findings" rows="10" required>{{ report.findings if report else '' }}</textarea>
+                    <small>Describe anatomical observations and abnormalities.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="impression">Impression/Conclusion: *</label>
+                    <textarea id="impression" name="impression" rows="5" required>{{ report.impression if report else '' }}</textarea>
+                    <small>Summary and clinical significance.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="recommendations">Recommendations:</label>
+                    <textarea id="recommendations" name="recommendations" rows="3">{{ report.recommendations if report else '' }}</textarea>
+                    <small>Follow-up imaging or clinical actions.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Report Status: *</label>
+                    <select id="status" name="status" required>
+                        <option value="draft" {% if not report or report.status == 'draft' %}selected{% endif %}>Draft</option>
+                        <option value="final" {% if report and report.status == 'final' %}selected{% endif %}>Final</option>
+                        <option value="signed" {% if report and report.status == 'signed' %}selected{% endif %}>Signed</option>
+                    </select>
+                    <small>Final and signed reports should only be used after review.</small>
+                </div>
+
+                <div class="ris-form-actions">
+                    <button type="submit" class="btn btn-primary">Save Report</button>
+                    <button type="button" onclick="saveDraft()" class="btn btn-secondary">Save as Draft</button>
+                    <button type="button" onclick="shareReport()" class="btn btn-share">Share</button>
+                    <a href="{{ url_for('ris_bp.worklist') }}" class="btn btn-tertiary">Cancel</a>
+                </div>
+            </form>
+        </div>
     </div>
+</main>
 
-    <script>
-        // Report Templates
-        const templates = {
-            ct_head: {
-                findings: `TECHNIQUE: Non-contrast CT scan of the head was performed.
+<script>
+const templates = {
+    ct_head: {
+        findings: `TECHNIQUE: Non-contrast CT scan of the head was performed.\n\nFINDINGS:\nBrain Parenchyma: Normal gray-white matter differentiation. No focal lesions, mass effect, or midline shift.\nVentricles: Normal size and configuration. No hydrocephalus.\nExtra-axial Spaces: No extra-axial fluid collections.\nSkull Base and Calvarium: Intact. No fractures.\nVisualized Paranasal Sinuses: Clear.`,
+        impression: `Normal non-contrast CT head.`,
+        recommendations: `Clinical correlation recommended.`
+    },
+    chest_xray: {
+        findings: `TECHNIQUE: Single frontal view of the chest.\n\nFINDINGS:\nLungs: Clear. No focal consolidation, pleural effusion, or pneumothorax.\nHeart: Normal size and contour. Cardiothoracic ratio within normal limits.\nMediastinum: Normal width. No widening.\nBones: No acute fractures or lesions.`,
+        impression: `Normal chest radiograph.`,
+        recommendations: `No further imaging indicated at this time.`
+    },
+    abdomen_ct: {
+        findings: `TECHNIQUE: Contrast-enhanced CT of the abdomen and pelvis.\n\nFINDINGS:\nLiver: Normal size and attenuation. No focal lesions.\nGallbladder: Normal. No stones or wall thickening.\nPancreas: Normal size and enhancement.\nSpleen: Normal size and attenuation.\nKidneys: Bilateral normal size and enhancement. No hydronephrosis or stones.\nBowel: No obstruction or wall thickening.\nPeritoneum: No free fluid or free air.`,
+        impression: `Normal contrast-enhanced CT abdomen and pelvis.`,
+        recommendations: `Clinical follow-up as needed.`
+    },
+    generic: {
+        findings: `[Describe the imaging findings here]`,
+        impression: `[Summary and clinical significance]`,
+        recommendations: `[Follow-up recommendations if any]`
+    }
+};
 
-FINDINGS:
-Brain Parenchyma: Normal gray-white matter differentiation. No focal lesions, mass effect, or midline shift.
-Ventricles: Normal size and configuration. No hydrocephalus.
-Extra-axial Spaces: No extra-axial fluid collections.
-Skull Base and Calvarium: Intact. No fractures.
-Visualized Paranasal Sinuses: Clear.`,
-                impression: `Normal non-contrast CT head.`,
-                recommendations: `Clinical correlation recommended.`
-            },
-            chest_xray: {
-                findings: `TECHNIQUE: Single frontal view of the chest.
+function loadTemplate(templateName) {
+    if (!templateName || !templates[templateName]) return;
+    const template = templates[templateName];
+    document.getElementById('findings').value = template.findings;
+    document.getElementById('impression').value = template.impression;
+    document.getElementById('recommendations').value = template.recommendations;
+}
 
-FINDINGS:
-Lungs: Clear. No focal consolidation, pleural effusion, or pneumothorax.
-Heart: Normal size and contour. Cardiothoracic ratio within normal limits.
-Mediastinum: Normal width. No widening.
-Bones: No acute fractures or lesions.`,
-                impression: `Normal chest radiograph.`,
-                recommendations: `No further imaging indicated at this time.`
-            },
-            abdomen_ct: {
-                findings: `TECHNIQUE: Contrast-enhanced CT of the abdomen and pelvis.
+function saveDraft() {
+    document.getElementById('status').value = 'draft';
+    document.getElementById('reportForm').submit();
+}
 
-FINDINGS:
-Liver: Normal size and attenuation. No focal lesions.
-Gallbladder: Normal. No stones or wall thickening.
-Pancreas: Normal size and enhancement.
-Spleen: Normal size and attenuation.
-Kidneys: Bilateral normal size and enhancement. No hydronephrosis or stones.
-Bowel: No obstruction or wall thickening.
-Peritoneum: No free fluid or free air.`,
-                impression: `Normal contrast-enhanced CT abdomen and pelvis.`,
-                recommendations: `Clinical follow-up as needed.`
-            },
-            generic: {
-                findings: `[Describe the imaging findings here]`,
-                impression: `[Summary and clinical significance]`,
-                recommendations: `[Follow-up recommendations if any]`
-            }
-        };
+function shareReport() {
+    const shareText = `Study ${"{{ study.study_instance_uid }}"} - Open in OHIF:\n` +
+        `{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=study.study_instance_uid, _external=True) }}`;
 
-        function loadTemplate(templateName) {
-            if (!templateName) return;
-            
-            const template = templates[templateName];
-            if (template) {
-                document.getElementById('findings').value = template.findings;
-                document.getElementById('impression').value = template.impression;
-                document.getElementById('recommendations').value = template.recommendations;
-            }
-        }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareText)
+            .then(() => alert('Study viewer link copied to clipboard.'))
+            .catch(() => alert('Unable to copy automatically. You can copy from this page URL.'));
+        return;
+    }
 
-        function saveDraft() {
-            document.getElementById('status').value = 'draft';
-            document.querySelector('form').submit();
-        }
-    </script>
-
-    <style>
-        .report-container {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 20px;
-            padding: 20px;
-        }
-
-        .study-info {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            height: fit-content;
-            position: sticky;
-            top: 20px;
-        }
-
-        .study-info h3 {
-            margin-bottom: 15px;
-            color: #1976d2;
-        }
-
-        .info-grid {
-            display: grid;
-            gap: 10px;
-            font-size: 14px;
-        }
-
-        .info-grid div {
-            padding: 8px;
-            background: #f5f5f5;
-            border-radius: 4px;
-        }
-
-        .viewer-link {
-            margin-top: 20px;
-            text-align: center;
-        }
-
-        .report-form {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .form-group {
-            margin-bottom: 25px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-        }
-
-        .form-group small {
-            display: block;
-            margin-top: 5px;
-            color: #666;
-            font-size: 12px;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #e0e0e0;
-        }
-
-        .btn-primary {
-            background: #1976d2;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .btn-primary:hover {
-            background: #1565c0;
-        }
-
-        .btn-secondary {
-            background: #757575;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .btn-secondary:hover {
-            background: #616161;
-        }
-
-        .btn-tertiary {
-            background: white;
-            color: #333;
-            padding: 12px 24px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            text-decoration: none;
-            display: inline-block;
-            font-size: 14px;
-        }
-
-        .btn-tertiary:hover {
-            background: #f5f5f5;
-        }
-
-        @media (max-width: 1024px) {
-            .report-container {
-                grid-template-columns: 1fr;
-            }
-            
-            .study-info {
-                position: static;
-            }
-        }
-    </style>
-</body>
-</html>
+    alert('Copy this link manually:\n' + shareText);
+}
+</script>
+{% endblock %}
