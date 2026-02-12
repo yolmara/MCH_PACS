@@ -1,9 +1,10 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
 from config import Config
 from models import db
 from flask_migrate import Migrate
 import time
 from sqlalchemy.exc import OperationalError
+from werkzeug.exceptions import RequestEntityTooLarge
 
 
 # ----------------------------------------------------
@@ -14,6 +15,10 @@ def create_app():
     app.config.from_object(Config)
     
     app.config['SESSION_TYPE'] = 'filesystem'
+    # Allow large multipart folder uploads by raising parser safeguards.
+    # MAX_CONTENT_LENGTH still enforces the hard request-size ceiling.
+    app.config['MAX_FORM_PARTS'] = 20000
+    app.config['MAX_FORM_MEMORY_SIZE'] = 16 * 1024 * 1024
 
     # Initialize database + migrations
     db.init_app(app)
@@ -41,6 +46,16 @@ def create_app():
        response.headers["Cache-Control"] = "no-cache"
        return response
 
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_request_entity_too_large(err):
+        return jsonify({
+            "error": "Request too large",
+            "message": str(err),
+            "max_content_length": app.config.get("MAX_CONTENT_LENGTH"),
+            "max_form_parts": app.config.get("MAX_FORM_PARTS"),
+            "max_form_memory_size": app.config.get("MAX_FORM_MEMORY_SIZE"),
+        }), 413
+
     # Register Jinja filters
     register_filters(app)
 
@@ -64,6 +79,7 @@ def register_blueprints(app):
     from Blueprints.wards.routes import wards_bp
     from Blueprints.auth.routes import auth_bp
     from Blueprints.ris.routes import ris_bp
+    from Blueprints.patients.routes import patients_bp
 
     app.register_blueprint(home_bp, url_prefix="/")
     app.register_blueprint(upload_bp, url_prefix="/upload")
@@ -72,6 +88,7 @@ def register_blueprints(app):
     app.register_blueprint(wards_bp, url_prefix="/wards")
     app.register_blueprint(auth_bp)
     app.register_blueprint(ris_bp, url_prefix='/ris')
+    app.register_blueprint(patients_bp, url_prefix='/patients')
     
     # DICOMWeb endpoints - all under /dicomweb
     app.register_blueprint(dicomweb_bp, url_prefix='/dicomweb')  

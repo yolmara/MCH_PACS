@@ -8,40 +8,70 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <header>
-    <div class="logo">
-        <a href="{{ url_for('home_bp.home_page') }}">
+    {% set current_path = request.path %}
+    <header class="topbar">
+    <div class="topbar-inner">
+    <div class="brand">
+        <a href="{{ url_for('home_bp.home_page') }}" class="brand-link">
             <img src="{{ url_for('static', filename='images/mpilo_logo_200px.png') }}" alt="Mpilo Logo">
-        </a>
-        <span class="hospital-name">Mpilo Central Hospital</span>
-    </div>
-    <nav>
-        <a href="{{ url_for('home_bp.home_page') }}">Dashboard</a>
-    
-        {% if session.get('role') in ['technician', 'admin'] %}
-            <a href="{{ url_for('upload_bp.upload_folder_page') }}">Upload Folder</a>
-        {% endif %}
-        
-        {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
-            <a href="{{ url_for('wards_bp.worklist_page') }}">Ward Worklist</a>
-        {% endif %}
-        
-        {% if session.get('role') == 'admin' %}
-            <a href="{{ url_for('wards_bp.manage_page') }}">Manage Wards</a>
-            <a href="{{ url_for('auth_bp.manage_users') }}">👥 Manage Users</a>
-        {% endif %}
-        
-        {% if session.get('user_id') %}
-            <span style="color: #81beff; margin-left: 20px;">
-                👤 {{ session.get('full_name', 'User') }} 
-                <small>({{ session.get('role', 'user') }})</small>
+            <span class="brand-text">
+                <strong>Mpilo Central Hospital</strong>
+                <small>PACS Platform</small>
             </span>
-            <a href="{{ url_for('auth_bp.logout') }}" class="logout-button">🚪 Logout</a>
+        </a>
+    </div>
+
+    <nav class="main-nav">
+        <a href="{{ url_for('home_bp.home_page') }}" class="{{ 'active' if current_path == '/' else '' }}">Dashboard</a>
+
+        {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
+            <a href="{{ url_for('wards_bp.worklist_page') }}" class="{{ 'active' if current_path.startswith('/wards/worklist') else '' }}">Ward Worklist</a>
+        {% endif %}
+
+        {% if session.get('role') in ['clerk', 'admin'] %}
+            <a href="{{ url_for('patients_bp.patients_list') }}" class="{{ 'active' if current_path.startswith('/patients') else '' }}">Patients</a>
+        {% endif %}
+
+        {% if session.get('role') in ['radiologist', 'admin'] %}
+            <a href="{{ url_for('ris_bp.worklist') }}" class="{{ 'active' if current_path.startswith('/ris') else '' }}">RIS</a>
+        {% endif %}
+
+        {% if session.get('role') == 'admin' %}
+            <div class="nav-dropdown">
+                <button type="button" class="nav-dropdown-btn {{ 'active' if current_path.startswith('/upload') or current_path.startswith('/wards/manage') or current_path.startswith('/auth/users') or current_path.startswith('/auth/activity-logs') else '' }}">Management</button>
+                <div class="nav-dropdown-menu">
+                    <a href="{{ url_for('upload_bp.upload_folder_page') }}" class="{{ 'active' if current_path.startswith('/upload') else '' }}">Upload Folder</a>
+                    <a href="{{ url_for('wards_bp.manage_page') }}" class="{{ 'active' if current_path.startswith('/wards/manage') else '' }}">Manage Wards</a>
+                    <a href="{{ url_for('auth_bp.manage_users') }}" class="{{ 'active' if current_path.startswith('/auth/users') else '' }}">Manage Users</a>
+                    <a href="{{ url_for('auth_bp.activity_logs') }}" class="{{ 'active' if current_path.startswith('/auth/activity-logs') else '' }}">Activity Logs</a>
+                </div>
+            </div>
+        {% elif session.get('role') == 'technician' %}
+            <a href="{{ url_for('upload_bp.upload_folder_page') }}" class="{{ 'active' if current_path.startswith('/upload') else '' }}">Upload Folder</a>
+        {% endif %}
+
+        {% if session.get('user_id') %}
+            <span class="user-badge">
+                {{ session.get('full_name', 'User') }} | {{ session.get('role', 'user') }}
+            </span>
+            <a href="{{ url_for('auth_bp.logout') }}" class="logout-button">Logout</a>
         {% else %}
             <a href="{{ url_for('auth_bp.login') }}">Login</a>
         {% endif %}
     </nav>
+    </div>
     </header>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-wrap">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ 'flash-success' if category == 'success' else 'flash-error' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
     {% block body %}{% endblock %}
 
 </body>

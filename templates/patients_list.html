@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Patients - MCH PACS{% endblock %}
+
+{% block body %}
+<main class="container" style="max-width: 1200px; margin: 30px auto; background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);">
+    <h2 style="margin-top: 0; color: #004080;">Patient List</h2>
+
+    <form method="GET" action="{{ url_for('patients_bp.patients_list') }}" style="display: flex; gap: 10px; margin-bottom: 18px;">
+        <input
+            type="text"
+            name="q"
+            value="{{ q }}"
+            placeholder="Search by Patient ID or Name"
+            style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px;"
+        >
+        <button
+            type="submit"
+            style="padding: 10px 14px; border: 0; border-radius: 8px; color: #fff; background: #004080; cursor: pointer;"
+        >
+            Search
+        </button>
+    </form>
+
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f1f5fb;">
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Patient ID</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Name</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Sex</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">DOB</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Ward</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Studies</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for patient in patients.items %}
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">{{ patient.patient_id or 'N/A' }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">{{ patient.patient_name or 'N/A' }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">{{ patient.patient_sex or 'N/A' }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">{{ patient.patient_dob or 'N/A' }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">{{ patient.ward.ward_name if patient.ward else 'Unassigned' }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">{{ patient.studies|length }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7; display: flex; gap: 8px;">
+                        <a href="{{ url_for('patients_bp.patient_detail', patient_id=patient.id) }}">View</a>
+                        {% if session.get('role') == 'admin' %}
+                        <form method="POST" action="{{ url_for('patients_bp.delete_patient', patient_id=patient.id) }}" onsubmit="return confirm('Delete this patient and all related studies/instances?');" style="margin: 0;">
+                            <button type="submit" style="padding: 4px 8px; border: 0; border-radius: 6px; background: #c62828; color: #fff; cursor: pointer;">
+                                Delete
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" style="padding: 18px; text-align: center; color: #777;">No patients found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if patients.pages > 1 %}
+    <div style="display: flex; justify-content: center; gap: 12px; margin-top: 16px;">
+        {% if patients.has_prev %}
+            <a href="{{ url_for('patients_bp.patients_list', page=patients.prev_num, q=q) }}">Prev</a>
+        {% endif %}
+        <span>Page {{ patients.page }} of {{ patients.pages }}</span>
+        {% if patients.has_next %}
+            <a href="{{ url_for('patients_bp.patients_list', page=patients.next_num, q=q) }}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</main>
+{% endblock %}

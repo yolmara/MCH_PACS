@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Patient Detail - MCH PACS{% endblock %}
+
+{% block body %}
+<main class="container" style="max-width: 1200px; margin: 30px auto; background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+        <div>
+            <h2 style="margin: 0; color: #004080;">Patient {{ patient.patient_id or patient.id }}</h2>
+            <p style="margin: 6px 0 0 0; color: #555;">
+                {{ patient.patient_name or 'N/A' }} | {{ patient.patient_sex or 'N/A' }} | DOB: {{ patient.patient_dob or 'N/A' }}
+            </p>
+            <p style="margin: 6px 0 0 0; color: #555;">
+                Ward: {{ patient.ward.ward_name if patient.ward else 'Unassigned' }}
+            </p>
+        </div>
+        <a href="{{ url_for('patients_bp.patients_list') }}">Back to Patients</a>
+    </div>
+
+    <h3 style="margin-top: 22px; color: #004080;">Studies</h3>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f1f5fb;">
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Study Date</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Study UID</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Description</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Series</th>
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Instances</th>
+                    {% if session.get('role') == 'admin' %}
+                    <th style="text-align: left; padding: 10px; border-bottom: 1px solid #d6dee8;">Action</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for study in patient.studies %}
+                {% set ns = namespace(instances=0) %}
+                {% for series in study.series %}
+                    {% set ns.instances = ns.instances + (series.instances|length) %}
+                {% endfor %}
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">{{ study.study_date or 'N/A' }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7; word-break: break-all;">{{ study.study_instance_uid }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">{{ study.description or 'N/A' }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">{{ study.series|length }}</td>
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">
+                        {{ ns.instances }}
+                    </td>
+                    {% if session.get('role') == 'admin' %}
+                    <td style="padding: 10px; border-bottom: 1px solid #eef2f7;">
+                        <form method="POST" action="{{ url_for('patients_bp.delete_study', study_id=study.id) }}" onsubmit="return confirm('Delete this study and all series/instances?');">
+                            <button type="submit" style="padding: 6px 10px; border: 0; border-radius: 6px; background: #c62828; color: #fff; cursor: pointer;">
+                                Delete Study
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="padding: 18px; text-align: center; color: #777;">No studies for this patient.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+{% endblock %}

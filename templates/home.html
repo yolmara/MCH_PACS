@@ -3,60 +3,86 @@
 {% block title %}Dashboard - MCH PACS {% endblock %}
 
 {% block body %}
-<main>
-    <section class="intro">
-        <h1>Welcome to the Mpilo Central Hospital (PACS) System</h1>
-        <p>Logged in as: <strong>{{ session.get('full_name', 'User') }}</strong> ({{ session.get('role', 'user') }})</p>
+<main class="dashboard-main">
+    <section class="dashboard-hero">
+        <div>
+            <h1>MCH PACS Dashboard</h1>
+            <p>Welcome back, <strong>{{ session.get('full_name', 'User') }}</strong>. Clinical imaging operations are ready.</p>
+        </div>
+        <div class="hero-role">{{ session.get('role', 'user')|capitalize }}</div>
     </section>
 
-    <section class="features">
-        <!-- Upload (Technicians & Admins only) -->
+    <section class="stats-grid">
+        <article class="stat-card">
+            <h3>Patients</h3>
+            <p>{{ stats.patients }}</p>
+        </article>
+        <article class="stat-card">
+            <h3>Studies</h3>
+            <p>{{ stats.studies }}</p>
+        </article>
+        <article class="stat-card">
+            <h3>Wards</h3>
+            <p>{{ stats.wards }}</p>
+        </article>
+    </section>
+
+    <section class="action-section">
+        <h2>Quick Actions</h2>
+        <div class="action-grid">
         {% if session.get('role') in ['technician', 'admin'] %}
-        <a href="{{ url_for('upload_bp.upload_folder_page') }}" class="feature-box">
-            📁 Upload Folder
+        <a href="{{ url_for('upload_bp.upload_folder_page') }}" class="action-card">
+            <span>Upload Folder</span>
+            <small>Import new DICOM folder studies</small>
         </a>
         {% endif %}
 
-        <!-- DICOM Viewer (All users) -->
-        <a href="{{ url_for('dicom_bp.ohif_viewer') }}" class="feature-box">
-            🖼️ DICOM Viewer
+        <a href="{{ url_for('dicom_bp.ohif_viewer') }}" class="action-card">
+            <span>DICOM Viewer</span>
+            <small>Open OHIF viewer for study review</small>
         </a>
 
-        <!-- Ward Worklist (Radiologists, Technicians, Admins) -->
         {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
-        <a href="{{ url_for('wards_bp.worklist_page') }}" class="feature-box">
-            📋 Ward Worklist
+        <a href="{{ url_for('wards_bp.worklist_page') }}" class="action-card">
+            <span>Ward Worklist</span>
+            <small>Review and prioritize ward imaging</small>
         </a>
         {% endif %}
 
-        <!-- Reports (Radiologists & Admins) -->
         {% if session.get('role') in ['radiologist', 'admin'] %}
-        <a href="{{ url_for('ris_bp.worklist') }}" class="feature-box">🩻 RIS Module</a>
-        {% endif %}
-
-        <!-- Manage Wards (Admins only) -->
-        {% if session.get('role') == 'admin' %}
-        <a href="{{ url_for('wards_bp.manage_page') }}" class="feature-box">
-            🏥 Manage Wards
-        </a>
-
-        <!-- Manage Users (Admins only) -->
-        <a href="{{ url_for('auth_bp.manage_users') }}" class="feature-box">
-            👥 Manage Users
-        </a>
-
-        <!-- Activity Logs (Admins only) -->
-        <a href="{{ url_for('auth_bp.activity_logs') }}" class="feature-box">
-            📊 Activity Logs
+        <a href="{{ url_for('ris_bp.worklist') }}" class="action-card">
+            <span>RIS Module</span>
+            <small>Orders, reports and interpretation</small>
         </a>
         {% endif %}
 
-        <!-- Patient List (Clerks & Admins) -->
         {% if session.get('role') in ['clerk', 'admin'] %}
-        <a href="#" class="feature-box">
-            📋 Patient List
+        <a href="{{ url_for('patients_bp.patients_list') }}" class="action-card">
+            <span>Patient List</span>
+            <small>Search, review and maintain records</small>
         </a>
         {% endif %}
+        </div>
     </section>
+
+    {% if session.get('role') == 'admin' %}
+    <section class="action-section">
+        <h2>Administration</h2>
+        <div class="action-grid admin-grid">
+            <a href="{{ url_for('wards_bp.manage_page') }}" class="action-card">
+                <span>Manage Wards</span>
+                <small>Configure wards and departments</small>
+            </a>
+            <a href="{{ url_for('auth_bp.manage_users') }}" class="action-card">
+                <span>Manage Users</span>
+                <small>Provision and control system access</small>
+            </a>
+            <a href="{{ url_for('auth_bp.activity_logs') }}" class="action-card">
+                <span>Activity Logs</span>
+                <small>Audit key user and system events</small>
+            </a>
+        </div>
+    </section>
+        {% endif %}
 </main>
 {% endblock %}

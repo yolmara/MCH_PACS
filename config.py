@@ -14,4 +14,4 @@ class Config:
 
     UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static', 'uploads')
 
-
+    MAX_CONTENT_LENGTH = 8 * 1024 * 1024 * 1024

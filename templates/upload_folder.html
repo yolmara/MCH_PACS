@@ -128,19 +128,29 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         if (response.ok) {
             statusDiv.style.background = '#e8f5e9';
             statusDiv.style.color = '#2e7d32';
+            
+            // Get the study UID from the first created file
+            const firstFile = result.created[0];
+            const studyUID = firstFile.study_uid;
+            
             progressText.innerHTML = `
                 <strong>✅ Upload Complete!</strong><br>
                 Created: ${result.created.length} files<br>
                 Errors: ${result.errors.length}<br>
-                Patient ID: ${result.patient_id}
+                Patient ID: ${result.patient_id}<br><br>
+                <a href="http://localhost:8080/?StudyInstanceUIDs=${studyUID}" 
+                target="_blank" 
+                style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #1976d2; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                🖼️ View Images in OHIF Viewer
+                </a>
             `;
             
-            // Reset form after 3 seconds
+            // Reset form after 5 seconds
             setTimeout(() => {
                 e.target.reset();
                 statusDiv.style.display = 'none';
                 document.getElementById('folderText').textContent = 'Click to select folder';
-            }, 3000);
+            }, 15000);
         } else {
             throw new Error(result.error || 'Upload failed');
         }
