@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}RIS Scheduling - MCH PACS{% endblock %}
+{% block body %}
+<main class="worklist-container">
+  <div class="page-header"><h2>Scheduling Board</h2></div>
+
+  <div class="filters">
+    <form method="GET" class="filter-form">
+      <input type="date" name="date" value="{{ request.args.get('date','') }}">
+      <input type="text" name="q" value="{{ request.args.get('q','') }}" placeholder="Patient ID/Name/Scanner">
+      <select name="modality">
+        <option value="">All Modalities</option>
+        <option value="CT">CT</option>
+        <option value="MRI">MRI</option>
+        <option value="XR">X-Ray</option>
+        <option value="US">Ultrasound</option>
+      </select>
+      <select name="status">
+        <option value="">All Status</option>
+        <option value="scheduled">Scheduled</option>
+        <option value="arrived">Arrived</option>
+        <option value="in_progress">In Progress</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="no_show">No Show</option>
+      </select>
+      <button type="submit" class="btn btn-primary">Filter</button>
+      <a href="{{ url_for('ris_bp.schedule_board') }}" class="btn btn-secondary">Clear</a>
+    </form>
+  </div>
+
+  <div class="table-card">
+    <table class="worklist-table">
+      <thead>
+        <tr>
+          <th>Time</th><th>Patient</th><th>Modality</th><th>Resource</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for appt in appointments %}
+        <tr>
+          <td>{{ appt.scheduled_start.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ appt.patient.patient_id }} - {{ appt.patient.patient_name or 'N/A' }}</td>
+          <td>{{ appt.modality }}</td>
+          <td>{{ appt.resource_name }}</td>
+          <td>{{ appt.status }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" style="display:inline;">
+              <input type="hidden" name="status" value="arrived">
+              <button class="btn btn-sm">Arrive</button>
+            </form>
+            <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" style="display:inline;">
+              <input type="hidden" name="status" value="in_progress">
+              <button class="btn btn-sm">Start</button>
+            </form>
+            <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" style="display:inline;">
+              <input type="hidden" name="status" value="completed">
+              <button class="btn btn-sm btn-primary">Complete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="worklist-empty">No appointments found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</main>
+{% endblock %}

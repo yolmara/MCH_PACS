@@ -12,11 +12,12 @@
             <h1>New Radiology Exam Order</h1>
                 <nav>
                     <a href="{{ url_for('ris_bp.list_orders') }}">Back to Orders</a>
-                    <a href="{{ url_for('home_bp.home_page) }}">Dashboard</a>
+                    <a href="{{ url_for('home_bp.home_page') }}">Dashboard</a>
                 </nav>
         </header>
 
         <main>
+            {% include 'ris/_subnav.html' %}
             <div class="form-container">
                 <h2>Order Exam for: {{ patient.patient_name or patient.patient_id }}</h2>
                 

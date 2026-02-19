@@ -109,55 +109,125 @@ function updateFolderText() {
 // Handle form submission
 document.getElementById('uploadForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
-    const formData = new FormData(e.target);
+
+    const form = e.target;
+    const patientId = form.patient_id.value.trim();
+    const wardId = form.ward_id.value;
+    const files = Array.from(document.getElementById('folderInput').files || []);
+
+    if (!patientId) {
+        alert('Patient ID is required.');
+        return;
+    }
+    if (!wardId) {
+        alert('Ward is required.');
+        return;
+    }
+    if (!files.length) {
+        alert('Please select a folder.');
+        return;
+    }
+
+    // Keep each request body moderate to avoid parser/temp-file FD exhaustion.
+    const MAX_BATCH_BYTES = 180 * 1024 * 1024; // 180 MB
+    const MAX_BATCH_FILES = 160;
+
+    const batches = [];
+    let currentBatch = [];
+    let currentBytes = 0;
+
+    for (const file of files) {
+        const nextBytes = currentBytes + file.size;
+        if (
+            currentBatch.length > 0 &&
+            (nextBytes > MAX_BATCH_BYTES || currentBatch.length >= MAX_BATCH_FILES)
+        ) {
+            batches.push(currentBatch);
+            currentBatch = [];
+            currentBytes = 0;
+        }
+        currentBatch.push(file);
+        currentBytes += file.size;
+    }
+    if (currentBatch.length > 0) {
+        batches.push(currentBatch);
+    }
+
     const statusDiv = document.getElementById('uploadStatus');
     const progressText = document.getElementById('progressText');
     
     statusDiv.style.display = 'block';
-    progressText.textContent = 'Processing files...';
+    progressText.textContent = `Preparing ${files.length} files in ${batches.length} batch(es)...`;
     
     try {
-        const response = await fetch(e.target.action, {
-            method: 'POST',
-            body: formData
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            statusDiv.style.background = '#e8f5e9';
-            statusDiv.style.color = '#2e7d32';
-            
-            // Get the study UID from the first created file
-            const firstFile = result.created[0];
-            const studyUID = firstFile.study_uid;
-            
-            progressText.innerHTML = `
-                <strong>✅ Upload Complete!</strong><br>
-                Created: ${result.created.length} files<br>
-                Errors: ${result.errors.length}<br>
-                Patient ID: ${result.patient_id}<br><br>
-                <a href="http://localhost:8080/?StudyInstanceUIDs=${studyUID}" 
-                target="_blank" 
-                style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #1976d2; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                🖼️ View Images in OHIF Viewer
-                </a>
-            `;
-            
-            // Reset form after 5 seconds
-            setTimeout(() => {
-                e.target.reset();
-                statusDiv.style.display = 'none';
-                document.getElementById('folderText').textContent = 'Click to select folder';
-            }, 15000);
-        } else {
-            throw new Error(result.error || 'Upload failed');
+        const aggregate = { created: [], errors: [] };
+
+        for (let i = 0; i < batches.length; i++) {
+            const batch = batches[i];
+            progressText.textContent = `Uploading batch ${i + 1}/${batches.length} (${batch.length} files)...`;
+
+            const formData = new FormData();
+            formData.append('patient_id', patientId);
+            formData.append('ward_id', wardId);
+            for (const file of batch) {
+                formData.append('files', file, file.webkitRelativePath || file.name);
+            }
+
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData
+            });
+
+            let result = {};
+            try {
+                result = await response.json();
+            } catch (jsonErr) {
+                if (!response.ok) {
+                    throw new Error(`Batch ${i + 1} failed with status ${response.status}`);
+                }
+            }
+
+            if (!response.ok) {
+                throw new Error(result.error || result.message || `Batch ${i + 1} upload failed`);
+            }
+
+            if (Array.isArray(result.created)) {
+                aggregate.created.push(...result.created);
+            }
+            if (Array.isArray(result.errors)) {
+                aggregate.errors.push(...result.errors);
+            }
         }
+
+        statusDiv.style.background = '#e8f5e9';
+        statusDiv.style.color = '#2e7d32';
+
+        const firstCreated = aggregate.created[0];
+        const studyLink = firstCreated
+            ? `<a href="{{ url_for('dicom_bp.ohif_viewer') }}?StudyInstanceUID=${firstCreated.study_uid}"
+                  target="_blank"
+                  style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #1976d2; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                  Open Images in OHIF Viewer
+               </a>`
+            : '';
+
+        progressText.innerHTML = `
+            <strong>Upload Complete</strong><br>
+            Created: ${aggregate.created.length} files<br>
+            Errors: ${aggregate.errors.length} files<br>
+            Patient ID: ${patientId}<br><br>
+            ${studyLink}
+        `;
+
+        setTimeout(() => {
+            form.reset();
+            statusDiv.style.display = 'none';
+            document.getElementById('folderText').textContent = 'Click to select folder';
+        }, 15000);
     } catch (error) {
         statusDiv.style.background = '#ffebee';
         statusDiv.style.color = '#c62828';
-        progressText.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+        progressText.innerHTML = `<strong>Error:</strong> ${error.message}`;
     }
 });
 </script>

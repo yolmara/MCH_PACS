@@ -1,0 +1,12 @@
+{% set ris_path = request.path %}
+<nav class="ris-subnav" aria-label="RIS section navigation">
+    <a href="{{ url_for('ris_bp.worklist') }}" class="{{ 'active' if ris_path.startswith('/ris/worklist') or ris_path.startswith('/ris/reports') else '' }}">
+        Worklist
+    </a>
+    <a href="{{ url_for('ris_bp.schedule_board') }}" class="{{ 'active' if ris_path.startswith('/ris/schedule') else '' }}">
+        Scheduling
+    </a>
+    <a href="{{ url_for('ris_bp.list_orders') }}" class="{{ 'active' if ris_path.startswith('/ris/orders') else '' }}">
+        Orders
+    </a>
+</nav>

@@ -28,7 +28,7 @@
                 {% if logs.items %}
                     {% for log in logs.items %}
                     <tr>
-                        <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>{{ log.timestamp | cat_time('%Y-%m-%d %H:%M:%S') }} CAT</td>
                         <td><strong>{{ log.username }}</strong></td>
                         <td>
                             <span class="badge 

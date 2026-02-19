@@ -4,12 +4,20 @@
 
 {% block body %}
 <main class="worklist-container">
+    {% include 'ris/_subnav.html' %}
     <div class="page-header">
         <h2>Studies Needing Reports</h2>
     </div>
 
     <div class="filters">
         <form method="GET" class="filter-form">
+            <input
+                type="text"
+                name="q"
+                value="{{ request.args.get('q', '') }}"
+                placeholder="Search patient ID, name, study UID, description"
+            >
+
             <select name="ward_id" onchange="this.form.submit()">
                 <option value="">All Wards</option>
                 {% for ward in wards %}
@@ -28,6 +36,7 @@
             </select>
 
             <a href="{{ url_for('ris_bp.worklist') }}" class="btn btn-secondary">Clear Filters</a>
+            <button type="submit" class="btn btn-primary">Search</button>
         </form>
     </div>
 
@@ -59,13 +68,13 @@
                     <td>{{ study.patient.ward.ward_name if study.patient.ward else 'N/A' }}</td>
                     <td>{{ study.series | map(attribute='instances') | map('length') | sum }}</td>
                     <td>
-                        <a href="/ohif?StudyInstanceUID={{ study.study_instance_uid }}" class="btn btn-sm" target="_blank">View Images</a>
+                        <a href="{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=study.study_instance_uid) }}" class="btn btn-sm" target="_blank">View Images</a>
                         <a href="{{ url_for('ris_bp.create_report', study_id=study.id) }}" class="btn btn-sm btn-primary">Write Report</a>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align:center;">No studies pending reports</td>
+                    <td colspan="8" class="worklist-empty">No studies pending reports</td>
                 </tr>
                 {% endfor %}
             </tbody>

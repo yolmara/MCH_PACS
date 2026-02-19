@@ -76,24 +76,6 @@ def create_user():
     flash(f'User {user.username} created successfully!', 'success')
     return redirect(url_for('auth_bp.manage_users'))
 
-# Delete user (admin only)
-@auth_bp.route('/users/<int:user_id>/delete', methods=['POST'])
-@login_required
-@role_required('admin')
-def delete_user(user_id):
-    user = User.query.get_or_404(user_id)
-    
-    # Don't allow deleting yourself
-    if user.id == session['user_id']:
-        flash('Cannot delete your own account', 'error')
-        return redirect(url_for('auth_bp.manage_users'))
-    
-    db.session.delete(user)
-    db.session.commit()
-    
-    flash(f'User {user.username} deleted', 'success')
-    return redirect(url_for('auth_bp.manage_users'))
-
 # Toggle user active status
 @auth_bp.route('/users/<int:user_id>/toggle', methods=['POST'])
 @login_required
@@ -105,6 +87,40 @@ def toggle_user(user_id):
     
     status = 'activated' if user.is_active else 'deactivated'
     flash(f'User {user.username} {status}', 'success')
+    return redirect(url_for('auth_bp.manage_users'))
+
+# Reset user password (admin only)
+@auth_bp.route('/users/<int:user_id>/reset-password', methods=['POST'])
+@login_required
+@role_required('admin')
+def reset_user_password(user_id):
+    user = User.query.get_or_404(user_id)
+
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+
+    if not new_password or not confirm_password:
+        flash('Both password fields are required', 'error')
+        return redirect(url_for('auth_bp.manage_users'))
+
+    if len(new_password) < 6:
+        flash('Password must be at least 6 characters', 'error')
+        return redirect(url_for('auth_bp.manage_users'))
+
+    if new_password != confirm_password:
+        flash('Password confirmation does not match', 'error')
+        return redirect(url_for('auth_bp.manage_users'))
+
+    user.set_password(new_password)
+    db.session.commit()
+
+    log_activity(
+        'password_reset',
+        resource=f'user_{user.username}',
+        details=f'Password reset by admin {session.get("username")}'
+    )
+
+    flash(f'Password reset successfully for {user.username}', 'success')
     return redirect(url_for('auth_bp.manage_users'))
 
 # Activity logs page (admin only)

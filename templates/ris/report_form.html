@@ -4,6 +4,7 @@
 
 {% block body %}
 <main class="ris-report-page">
+    {% include 'ris/_subnav.html' %}
     <div class="ris-report-container">
         <div class="ris-study-info">
             <h3>Study Information</h3>
@@ -122,18 +123,37 @@ function saveDraft() {
     document.getElementById('reportForm').submit();
 }
 
-function shareReport() {
-    const shareText = `Study ${"{{ study.study_instance_uid }}"} - Open in OHIF:\n` +
-        `{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=study.study_instance_uid, _external=True) }}`;
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(shareText)
-            .then(() => alert('Study viewer link copied to clipboard.'))
-            .catch(() => alert('Unable to copy automatically. You can copy from this page URL.'));
-        return;
+async function shareReport() {
+    const shareText = `Study {{ study.study_instance_uid }} - Open in OHIF`;
+    const shareUrl = `{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=study.study_instance_uid, _external=True) }}`;
+
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: 'Radiology Study',
+                text: shareText,
+                url: shareUrl
+            });
+            return;
+        } catch (err) {
+            // user cancelled or share failed; fall through to clipboard fallback
+        }
     }
 
-    alert('Copy this link manually:\n' + shareText);
+    // Fallback for browsers/devices without native share
+    const fallback = `${shareText}\n${shareUrl}`;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+            await navigator.clipboard.writeText(fallback);
+            alert('Share not available here. Link copied to clipboard.');
+            return;
+        } catch (e) {}
+    }
+
+    alert('Share not available. Copy this manually:\n' + fallback);
 }
+
+
 </script>
 {% endblock %}

@@ -43,8 +43,8 @@ def create_app():
     
     @app.after_request
     def disable_caching(response):
-       response.headers["Cache-Control"] = "no-cache"
-       return response
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_request_entity_too_large(err):

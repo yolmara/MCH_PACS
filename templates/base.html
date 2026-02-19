@@ -73,6 +73,11 @@
             </div>
         {% endif %}
     {% endwith %}
+    {% if session.get('user_id') and request.endpoint not in ['home_bp.home_page', 'auth_bp.login'] %}
+        <div class="back-nav-wrap">
+            <a href="{{ request.referrer or url_for('home_bp.home_page') }}" class="back-nav-link" title="Go back">← Back</a>
+        </div>
+    {% endif %}
     {% block body %}{% endblock %}
 
 </body>

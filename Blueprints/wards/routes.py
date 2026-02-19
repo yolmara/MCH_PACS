@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, render_template
 from Blueprints.auth.routes import login_required
+from dicom_utils.activity_logger import log_activity
 from models import db, Ward, Department, Patient, Study
 from sqlalchemy.orm import joinedload
 
@@ -191,6 +192,12 @@ def transfer_patient(patient_id):
     db.session.commit()
     
     new_ward = patient.ward.ward_name if patient.ward else 'Unassigned'
+
+    log_activity(
+        "patient_transfer",
+        resource=f"patient_{patient.patient_id}",
+        details=f"Transferred from {old_ward} to {new_ward}"
+    )
     
     return jsonify({
         'message': f'Patient transferred from {old_ward} to {new_ward}',

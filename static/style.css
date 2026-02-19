@@ -179,6 +179,28 @@ body {
   background: #b71c1c;
 }
 
+.back-nav-wrap {
+  max-width: 1200px;
+  margin: 8px auto 0;
+  padding: 0 16px;
+}
+
+.back-nav-link {
+  display: inline-block;
+  text-decoration: none;
+  color: #1a4f80;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid #cddff0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.back-nav-link:hover {
+  background: #e9f2fb;
+}
+
 .dashboard-main {
   max-width: 1200px;
   margin: 98px auto 26px;
@@ -295,6 +317,98 @@ body {
 
 .admin-grid .action-card {
   border-left: 4px solid #1f69ac;
+}
+
+/*------------------------------------------------------ Patients Page -------------------------------------------------------------------------*/
+.patients-page {
+  max-width: 1200px;
+  margin: 98px auto 30px;
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.patients-title {
+  margin-top: 0;
+  color: #004080;
+}
+
+.patients-search-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.patients-search-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.patients-search-btn {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #004080;
+  cursor: pointer;
+}
+
+.patients-table-wrap {
+  overflow-x: auto;
+}
+
+.patients-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.patients-table thead tr {
+  background: #f1f5fb;
+}
+
+.patients-table th {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #d6dee8;
+}
+
+.patients-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.patients-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.patients-delete-form {
+  margin: 0;
+}
+
+.patients-delete-btn {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: #c62828;
+  color: #fff;
+  cursor: pointer;
+}
+
+.patients-empty {
+  padding: 18px;
+  text-align: center;
+  color: #777;
+}
+
+.patients-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 /*------------------------------------------------------ Stats Dashboard -------------------------------------------------------------------------*/
@@ -551,6 +665,10 @@ body {
   }
 
   .dashboard-main {
+    margin-top: 130px;
+  }
+
+  .patients-page {
     margin-top: 130px;
   }
 
@@ -1006,6 +1124,10 @@ body {
     background-color: #f8fafc;
 }
 
+.worklist-empty {
+    text-align: center;
+}
+
 .badge {
     display: inline-block;
     padding: 4px 12px;
@@ -1279,6 +1401,30 @@ body {
             margin: 96px auto 24px;
             padding: 0 16px;
         }
+        .ris-subnav {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 0 0 14px;
+        }
+        .ris-subnav a {
+            text-decoration: none;
+            color: #1e3a8a;
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            border-radius: 999px;
+            padding: 7px 14px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .ris-subnav a:hover {
+            background: #dbeafe;
+        }
+        .ris-subnav a.active {
+            color: #fff;
+            background: #1e3a8a;
+            border-color: #1e3a8a;
+        }
         .ris-report-container {
             display: grid;
             grid-template-columns: 1fr 2fr;
@@ -1372,9 +1518,17 @@ body {
             display: flex;
             gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
         .filter-form select {
             padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .filter-form input[type="text"] {
+            min-width: 260px;
+            flex: 1;
+            padding: 8px 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
@@ -1395,6 +1549,14 @@ body {
             padding: 8px 12px;
             border-radius: 4px;
             text-decoration: none;
+        }
+        .inline-form {
+            display: inline;
+        }
+        @media (max-width: 900px) {
+            .filter-form input[type="text"] {
+                min-width: 100%;
+            }
         }
 
 /*------------------------------------------------------- Footer --------------------------------------------------------------------*/

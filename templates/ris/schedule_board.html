@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}RIS Scheduling - MCH PACS{% endblock %}
+
+{% block body %}
+<main class="worklist-container">
+    {% include 'ris/_subnav.html' %}
+
+    <div class="page-header">
+        <h2>Scheduling Board</h2>
+    </div>
+
+    <div class="filters">
+        <form method="GET" class="filter-form">
+            <input type="date" name="date" value="{{ request.args.get('date','') }}">
+            <input type="text" name="q" value="{{ request.args.get('q','') }}" placeholder="Patient ID/Name/Scanner">
+            <select name="modality">
+                <option value="">All Modalities</option>
+                <option value="CT" {% if request.args.get('modality') == 'CT' %}selected{% endif %}>CT</option>
+                <option value="MRI" {% if request.args.get('modality') == 'MRI' %}selected{% endif %}>MRI</option>
+                <option value="XR" {% if request.args.get('modality') == 'XR' %}selected{% endif %}>X-Ray</option>
+                <option value="US" {% if request.args.get('modality') == 'US' %}selected{% endif %}>Ultrasound</option>
+            </select>
+            <select name="status">
+                <option value="">All Status</option>
+                <option value="scheduled" {% if request.args.get('status') == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                <option value="arrived" {% if request.args.get('status') == 'arrived' %}selected{% endif %}>Arrived</option>
+                <option value="in_progress" {% if request.args.get('status') == 'in_progress' %}selected{% endif %}>In Progress</option>
+                <option value="completed" {% if request.args.get('status') == 'completed' %}selected{% endif %}>Completed</option>
+                <option value="cancelled" {% if request.args.get('status') == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                <option value="no_show" {% if request.args.get('status') == 'no_show' %}selected{% endif %}>No Show</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Filter</button>
+            <a href="{{ url_for('ris_bp.schedule_board') }}" class="btn btn-secondary">Clear</a>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <table class="worklist-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Patient</th>
+                    <th>Modality</th>
+                    <th>Resource</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for appt in appointments %}
+                <tr>
+                    <td>{{ appt.scheduled_start.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ appt.patient.patient_id }} - {{ appt.patient.patient_name or 'N/A' }}</td>
+                    <td>{{ appt.modality }}</td>
+                    <td>{{ appt.resource_name }}</td>
+                    <td>{{ appt.status }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
+                            <input type="hidden" name="status" value="arrived">
+                            <button class="btn btn-sm">Arrive</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
+                            <input type="hidden" name="status" value="in_progress">
+                            <button class="btn btn-sm">Start</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
+                            <input type="hidden" name="status" value="completed">
+                            <button class="btn btn-sm btn-primary">Complete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="worklist-empty">No appointments found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+{% endblock %}

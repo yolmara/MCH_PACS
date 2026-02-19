@@ -12,5 +12,6 @@ from .department import Department
 from .activity_log import ActivityLog
 from .exam_order import ExamOrder
 from .radiology_report import RadiologyReport 
+from .appointment import Appointment
 
-__all__ = ['db', 'Patient', 'Study', 'Series', 'Instance', 'Ward', 'Department', 'User', 'ActivityLog', 'ExamOrder', 'RadiologyReport']
+__all__ = ['db', 'Patient', 'Study', 'Series', 'Instance', 'Ward', 'Department', 'User', 'ActivityLog', 'ExamOrder', 'RadiologyReport', 'Appointment']
