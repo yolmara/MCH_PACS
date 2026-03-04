@@ -1124,6 +1124,11 @@ body {
     background-color: #f8fafc;
 }
 
+.worklist-table .btn-ohif {
+    background-color: greenyellow;
+    
+}
+
 .worklist-empty {
     text-align: center;
 }
@@ -1550,6 +1555,22 @@ body {
             border-radius: 4px;
             text-decoration: none;
         }
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+            border: none;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        .priority-routine { background: #e3f2fd; color: #1976d2; }
+        .priority-urgent { background: #fff3e0; color: #f57c00; }
+        .priority-stat { background: #ffebee; color: #c62828; }
+        .status-pending { background: #fff9c4; color: #f57f17; }
+        .status-scheduled { background: #e1f5fe; color: #0277bd; }
+        .status-in_progress { background: #f3e5f5; color: #6a1b9a; }
+        .status-completed { background: #e8f5e9; color: #2e7d32; }
+        .status-cancelled { background: #ffebee; color: #c62828; }
         .inline-form {
             display: inline;
         }

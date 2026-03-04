@@ -192,7 +192,8 @@ async function loadStudies() {
 }
 
 function viewStudy(studyUID) {
-    window.open(`http://localhost:8081/viewer?StudyInstanceUIDs=${studyUID}`, '_blank');
+    const launchUrl = "{{ url_for('dicom_bp.ohif_viewer') }}";
+    window.open(`${launchUrl}?StudyInstanceUID=${encodeURIComponent(studyUID)}`, '_blank');
 }
 
 function manageDepartments() {

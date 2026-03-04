@@ -1,110 +1,65 @@
-<!DOCTYPE html>
-<head>
-    <title>Exam Orders - MCH PACS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <img src="{{ url_for('static', filename='images/mpilo_logo_200px.png') }}" alt="MCH Logo">
-            </div>
-            <h1>Radiology Exam Orders</h1>
-                <nav>
-                    <a href="{{ url_for('home_bp.home_page') }}">Dashboard</a>
-                    <a href="{{ url_for('ris_bp.worklist') }}">Worklist</a>
-                    <a href="{{ url_for('auth_bp.logout') }}">Logout</a>
-                </nav>
-        </header>
+{% extends 'base.html' %}
 
-        <main>
-            {% include 'ris/_subnav.html' %}
-            <div class="page-header">
-                <h2>All Exam Orders</h2>
-            </div>
+{% block title %}Exam Orders - MCH PACS{% endblock %}
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
+{% block body %}
+<main class="worklist-container">
+    {% include 'ris/_subnav.html' %}
 
-            <div class="table-card">
-                <table class="worklist-table">
-                    <thead>
-                        <tr>
-                            <th>Order #</th>
-                            <th>Patient</th>
-                            <th>Exam Type</th>
-                            <th>Body Part</th>
-                            <th>Priority</th>
-                            <th>Status</th>
-                            <th>Order Date</th>
-                            <th>Ordering Doctor</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for order in orders %}
-                        <tr>
-                            <td>{{ order.order_number }}</td>
-                            <td>{{ order.patient.patient_name or order.patient.patient_id }}</td>
-                            <td>{{ order.exam_type }}</td>
-                            <td>{{ order.body_part }}</td>
-                            <td>
-                                <span class="badge priority-{{ order.priority }}">
-                                    {{ order.priority.upper() }}
-                                </span>
-                            </td>
-                            <td>
-                                <span class="badge status-{{ order.status }}">
-                                    {{ order.status }}
-                                </span>
-                            </td>
-                            <td>{{ order.order_date.strftime('%Y-%m-%d %H:%M') }}</td>
-                            <td>{{ order.ordering_doctor_name }}</td>
-                            <td>
-                                <a href="{{ url_for('ris_bp.view_order', order_id=order.id) }}" class="btn btn-sm">View</a>
-                                {% if order.status == 'pending' %}
-                                <form method="POST" action="{{ url_for('ris_bp.cancel_order', order_id=order.id) }}" style="display:inline;">
-                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Cancel this order?')">Cancel</button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="9" style="text-align:center;">No exam orders found</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </main>
+    <div class="page-header">
+        <h2>All Exam Orders</h2>
     </div>
 
-    <style>
-        .badge {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .priority-routine { background: #e3f2fd; color: #1976d2; }
-        .priority-urgent { background: #fff3e0; color: #f57c00; }
-        .priority-stat { background: #ffebee; color: #c62828; }
-        
-        .status-pending { background: #fff9c4; color: #f57f17; }
-        .status-scheduled { background: #e1f5fe; color: #0277bd; }
-        .status-in_progress { background: #f3e5f5; color: #6a1b9a; }
-        .status-completed { background: #e8f5e9; color: #2e7d32; }
-        .status-cancelled { background: #ffebee; color: #c62828; }
-        
-        .btn-sm { padding: 4px 8px; font-size: 12px; }
-        .btn-danger { background: #f44336; color: white; border: none; cursor: pointer; }
-        .btn-danger:hover { background: #d32f2f; }
-    </style>
-</body>
-</html>
+    <div class="table-card">
+        <table class="worklist-table">
+            <thead>
+                <tr>
+                    <th>Order #</th>
+                    <th>Patient</th>
+                    <th>Exam Type</th>
+                    <th>Body Part</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Order Date</th>
+                    <th>Ordering Doctor</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>{{ order.order_number }}</td>
+                    <td>{{ order.patient.patient_name or order.patient.patient_id }}</td>
+                    <td>{{ order.exam_type }}</td>
+                    <td>{{ order.body_part }}</td>
+                    <td>
+                        <span class="badge priority-{{ order.priority }}">
+                            {{ order.priority.upper() }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge status-{{ order.status }}">
+                            {{ order.status }}
+                        </span>
+                    </td>
+                    <td>{{ order.order_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ order.ordering_doctor_name }}</td>
+                    <td>
+                        <a href="{{ url_for('ris_bp.view_order', order_id=order.id) }}" class="btn btn-sm">View</a>
+                        {% if order.status == 'pending' %}
+                        <form method="POST" action="{{ url_for('ris_bp.cancel_order', order_id=order.id) }}" class="inline-form">
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Cancel this order?')">Cancel</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="worklist-empty">No exam orders found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+{% endblock %}

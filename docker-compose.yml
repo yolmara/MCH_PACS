@@ -22,7 +22,7 @@ services:
   flask-app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     command: python app.py
     container_name: flask-app
     restart: always
