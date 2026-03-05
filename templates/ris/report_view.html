@@ -1,279 +1,236 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radiology Report - MCH PACS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <img src="{{ url_for('static', filename='images/mpilo_logo_200px.png') }}" alt="MCH Logo">
+{% extends 'base.html' %}
+
+{% block title %}Radiology Report - MCH PACS{% endblock %}
+
+{% block head %}
+<style>
+    .report-page {
+        margin-top: 14px;
+    }
+
+    .report-container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .report-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+        border-bottom: 3px solid #1976d2;
+    }
+
+    .report-title {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .report-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .report-section {
+        margin-bottom: 30px;
+    }
+
+    .report-section h3 {
+        color: #1976d2;
+        margin-bottom: 15px;
+        font-size: 18px;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+
+    .info-item label {
+        font-weight: bold;
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 5px;
+    }
+
+    .info-item span {
+        color: #333;
+        font-size: 14px;
+    }
+
+    .report-content {
+        padding: 20px;
+        background: #fafafa;
+        border-left: 4px solid #1976d2;
+        border-radius: 4px;
+        line-height: 1.8;
+        white-space: pre-wrap;
+    }
+
+    .report-footer {
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 2px solid #e0e0e0;
+    }
+
+    .print-actions {
+        margin-top: 30px;
+        text-align: center;
+    }
+
+    .status-draft { background: #fff9c4; color: #f57f17; }
+    .status-final { background: #e8f5e9; color: #2e7d32; }
+    .status-signed { background: #e3f2fd; color: #1976d2; }
+
+    @media print {
+        .topbar,
+        .back-nav-wrap,
+        .ris-subnav,
+        .report-actions,
+        .print-actions,
+        footer {
+            display: none !important;
+        }
+
+        .worklist-container,
+        .report-container {
+            margin: 0;
+            padding: 0;
+            box-shadow: none;
+            max-width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<main class="worklist-container report-page">
+    {% include 'ris/_subnav.html' %}
+
+    <div class="report-container">
+        <div class="report-header">
+            <div class="report-title">
+                <h2>Radiology Report</h2>
+                <span class="badge status-{{ report.status }}">{{ report.status.upper() }}</span>
             </div>
-            <h1>Radiology Report</h1>
-                <nav>
-                    <a href="{{ url_for('ris_bp.worklist') }}">Worklist</a>
-                    <a href="{{ url_for('ris_bp.list_orders') }}">Orders</a>
-                    <a href="{{ url_for('home_bp.home_page') }}">Dashboard</a>
-                </nav>
-        </header>
 
-        <main>
-            {% include 'ris/_subnav.html' %}
-            <div class="report-container">
-                <!-- Report Header -->
-                <div class="report-header">
-                    <div class="report-title">
-                        <h2>Radiology Report</h2>
-                        <span class="badge status-{{ report.status }}">{{ report.status.upper() }}</span>
-                    </div>
-                    
-                    {% if report.status == 'draft' %}
-                    <div class="report-actions">
-                        <a href="{{ url_for('ris_bp.edit_report', report_id=report.id) }}" class="btn btn-primary">✏️ Edit Report</a>
-                        <a href="http://localhost:8080/?StudyInstanceUIDs={{ report.study.study_instance_uid }}" 
-                           target="_blank" class="btn btn-secondary">🖼️ View Images</a>
-                    </div>
-                    {% endif %}
+            <div class="report-actions">
+                <a href="{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=report.study.study_instance_uid) }}" target="_blank" class="btn btn-secondary">View Images</a>
+                {% if ris_has_pdf_endpoint %}
+                <a href="{{ url_for('ris_bp.download_report_pdf', report_id=report.id) }}" class="btn btn-secondary">Download PDF</a>
+                {% endif %}
+                {% if report.status == 'draft' %}
+                <a href="{{ url_for('ris_bp.edit_report', report_id=report.id) }}" class="btn btn-primary">Edit Report</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h3>Patient Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Patient ID:</label>
+                    <span>{{ report.study.patient.patient_id }}</span>
                 </div>
-
-                <!-- Patient & Study Info -->
-                <div class="report-section">
-                    <h3>Patient Information</h3>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <label>Patient ID:</label>
-                            <span>{{ report.study.patient.patient_id }}</span>
-                        </div>
-                        <div class="info-item">
-                            <label>Patient Name:</label>
-                            <span>{{ report.study.patient.patient_name or 'N/A' }}</span>
-                        </div>
-                        <div class="info-item">
-                            <label>Sex:</label>
-                            <span>{{ report.study.patient.patient_sex or 'N/A' }}</span>
-                        </div>
-                        <div class="info-item">
-                            <label>DOB:</label>
-                            <span>{{ report.study.patient.patient_dob or 'N/A' }}</span>
-                        </div>
-                    </div>
+                <div class="info-item">
+                    <label>Patient Name:</label>
+                    <span>{{ report.study.patient.patient_name or 'N/A' }}</span>
                 </div>
-
-                <div class="report-section">
-                    <h3>Study Information</h3>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <label>Study Date:</label>
-                            <span>{{ report.study.study_date }}</span>
-                        </div>
-                        <div class="info-item">
-                            <label>Study Description:</label>
-                            <span>{{ report.study.description or 'N/A' }}</span>
-                        </div>
-                        <div class="info-item">
-                            <label>Ward:</label>
-                            <span>{{ report.study.patient.ward.ward_name if report.study.patient.ward else 'N/A' }}</span>
-                        </div>
-                    </div>
+                <div class="info-item">
+                    <label>Sex:</label>
+                    <span>{{ report.study.patient.patient_sex or 'N/A' }}</span>
                 </div>
-
-                <!-- Report Content -->
-                <div class="report-section">
-                    <h3>Findings</h3>
-                    <div class="report-content">
-                        {{ report.findings | safe | replace('\n', '<br>') }}
-                    </div>
+                <div class="info-item">
+                    <label>DOB:</label>
+                    <span>{{ report.study.patient.patient_dob or 'N/A' }}</span>
                 </div>
+            </div>
+        </div>
 
-                <div class="report-section">
-                    <h3>Impression</h3>
-                    <div class="report-content">
-                        {{ report.impression | safe | replace('\n', '<br>') }}
-                    </div>
+        <div class="report-section">
+            <h3>Study Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Study Date:</label>
+                    <span>{{ report.study.study_date }}</span>
                 </div>
+                <div class="info-item">
+                    <label>Study Description:</label>
+                    <span>{{ report.study.description or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Ward:</label>
+                    <span>{{ report.study.patient.ward.ward_name if report.study.patient.ward else 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
 
-                {% if report.recommendations %}
-                <div class="report-section">
-                    <h3>Recommendations</h3>
-                    <div class="report-content">
-                        {{ report.recommendations | safe | replace('\n', '<br>') }}
-                    </div>
+        <div class="report-section">
+            <h3>Findings</h3>
+            <div class="report-content">
+                {{ report.findings | striptags }}
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h3>Impression</h3>
+            <div class="report-content">
+                {{ report.impression | striptags }}
+            </div>
+        </div>
+
+        {% if report.recommendations %}
+        <div class="report-section">
+            <h3>Recommendations</h3>
+            <div class="report-content">
+                {{ report.recommendations | striptags }}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="report-footer">
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Radiologist:</label>
+                    <span>{{ report.radiologist_name }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Created:</label>
+                    <span>{{ report.created_at | cat_time('%Y-%m-%d %H:%M') }} CAT</span>
+                </div>
+                {% if report.finalized_at %}
+                <div class="info-item">
+                    <label>Finalized:</label>
+                    <span>{{ report.finalized_at | cat_time('%Y-%m-%d %H:%M') }} CAT</span>
                 </div>
                 {% endif %}
-
-                <!-- Report Metadata -->
-                <div class="report-footer">
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <label>Radiologist:</label>
-                            <span>{{ report.radiologist_name }}</span>
-                        </div>
-                        <div class="info-item">
-                            <label>Created:</label>
-                            <span>{{ report.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
-                        </div>
-                        {% if report.finalized_at %}
-                        <div class="info-item">
-                            <label>Finalized:</label>
-                            <span>{{ report.finalized_at.strftime('%Y-%m-%d %H:%M') }}</span>
-                        </div>
-                        {% endif %}
-                        {% if report.signed_at %}
-                        <div class="info-item">
-                            <label>Signed:</label>
-                            <span>{{ report.signed_at.strftime('%Y-%m-%d %H:%M') }}</span>
-                        </div>
-                        {% endif %}
-                    </div>
+                {% if report.signed_at %}
+                <div class="info-item">
+                    <label>Signed:</label>
+                    <span>{{ report.signed_at | cat_time('%Y-%m-%d %H:%M') }} CAT</span>
                 </div>
-
-                <!-- Print Button -->
-                <div class="print-actions">
-                    <button onclick="window.print()" class="btn btn-primary">🖨️ Print Report</button>
-                </div>
+                {% endif %}
             </div>
-        </main>
+        </div>
+
+        <div class="print-actions">
+            <button onclick="window.print()" class="btn btn-primary">Print Report</button>
+        </div>
     </div>
-
-    <style>
-        .report-container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .report-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #1976d2;
-        }
-
-        .report-title {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .report-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .report-section {
-            margin-bottom: 30px;
-        }
-
-        .report-section h3 {
-            color: #1976d2;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .info-item {
-            display: flex;
-            flex-direction: column;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 4px;
-        }
-
-        .info-item label {
-            font-weight: bold;
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-
-        .info-item span {
-            color: #333;
-            font-size: 14px;
-        }
-
-        .report-content {
-            padding: 20px;
-            background: #fafafa;
-            border-left: 4px solid #1976d2;
-            border-radius: 4px;
-            line-height: 1.8;
-            white-space: pre-wrap;
-        }
-
-        .report-footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 2px solid #e0e0e0;
-        }
-
-        .print-actions {
-            margin-top: 30px;
-            text-align: center;
-        }
-
-        .badge {
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        .status-draft { background: #fff9c4; color: #f57f17; }
-        .status-final { background: #e8f5e9; color: #2e7d32; }
-        .status-signed { background: #e3f2fd; color: #1976d2; }
-
-        .btn-primary {
-            background: #1976d2;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .btn-primary:hover {
-            background: #1565c0;
-        }
-
-        .btn-secondary {
-            background: #757575;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .btn-secondary:hover {
-            background: #616161;
-        }
-
-        @media print {
-            header, nav, .report-actions, .print-actions {
-                display: none;
-            }
-            
-            .report-container {
-                box-shadow: none;
-                padding: 0;
-            }
-        }
-    </style>
-</body>
-</html>
+</main>
+{% endblock %}

@@ -1,24 +1,181 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session, current_app
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session, current_app, send_file
 from Blueprints.auth.routes import login_required
 from dicom_utils.activity_logger import log_activity
-from models import db, ExamOrder, Patient, Ward, User, Series, Appointment
+from models import db, ExamOrder, Patient, Ward, User, Series, Appointment, RadiologyReport
 from datetime import datetime
 from sqlalchemy import or_
+from io import BytesIO
+from html import unescape
+import re
+import textwrap
+from pytz import timezone, utc
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
 
 
 
 
 ris_bp = Blueprint("ris_bp", __name__)
 
+
+@ris_bp.context_processor
+def inject_ris_draft_count():
+    """Expose draft report count for RIS navigation."""
+    user_id = session.get("user_id")
+    view_functions = getattr(current_app, "view_functions", {})
+    has_saved_reports_endpoint = "ris_bp.list_saved_reports" in view_functions
+    has_pdf_endpoint = "ris_bp.download_report_pdf" in view_functions
+    if not user_id:
+        return {
+            "ris_draft_count": 0,
+            "ris_has_saved_reports_endpoint": has_saved_reports_endpoint,
+            "ris_has_pdf_endpoint": has_pdf_endpoint,
+        }
+
+    query = RadiologyReport.query.filter(RadiologyReport.status == "draft")
+    if session.get("role") != "admin":
+        query = query.filter(RadiologyReport.radiologist_id == user_id)
+
+    return {
+        "ris_draft_count": query.count(),
+        "ris_has_saved_reports_endpoint": has_saved_reports_endpoint,
+        "ris_has_pdf_endpoint": has_pdf_endpoint,
+    }
+
+
+def _is_report_accessible(report):
+    """Admins can access all reports; radiologists can access their own."""
+    if session.get("role") == "admin":
+        return True
+    return report.radiologist_id == session.get("user_id")
+
+
+def _format_cat_time(dt_obj):
+    if not dt_obj:
+        return "N/A"
+    if dt_obj.tzinfo is None:
+        dt_obj = utc.localize(dt_obj)
+    return dt_obj.astimezone(timezone("Africa/Harare")).strftime("%Y-%m-%d %H:%M")
+
+
+def _strip_html(value):
+    value = value or ""
+    return unescape(re.sub(r"<[^>]+>", "", value))
+
+
+def _build_report_pdf(report):
+    """Generate a printable PDF summary of a report."""
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    page_width, page_height = A4
+    margin = 18 * mm
+    y = page_height - margin
+    line_height = 13
+
+    def draw_line(text="", bold=False, size=10, spacer=False):
+        nonlocal y
+        if spacer:
+            y -= line_height
+            return
+        if y <= margin:
+            pdf.showPage()
+            y = page_height - margin
+        pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        pdf.drawString(margin, y, text)
+        y -= line_height
+
+    def draw_block(title, value):
+        draw_line(title, bold=True)
+        body = _strip_html(value).strip() or "N/A"
+        for paragraph in body.splitlines() or ["N/A"]:
+            wrapped = textwrap.wrap(paragraph, width=105) or [""]
+            for line in wrapped:
+                draw_line(line)
+        draw_line(spacer=True)
+
+    patient = report.study.patient
+    draw_line("MCH PACS - Radiology Report", bold=True, size=14)
+    draw_line(spacer=True)
+    draw_line(f"Report ID: {report.id}")
+    draw_line(f"Status: {(report.status or 'unknown').upper()}")
+    draw_line(f"Radiologist: {report.radiologist_name or 'N/A'}")
+    draw_line(f"Created (CAT): {_format_cat_time(report.created_at)}")
+    draw_line(f"Finalized (CAT): {_format_cat_time(report.finalized_at)}")
+    draw_line(f"Signed (CAT): {_format_cat_time(report.signed_at)}")
+    draw_line(spacer=True)
+    draw_line("Patient Details", bold=True)
+    draw_line(f"Patient ID: {patient.patient_id}")
+    draw_line(f"Patient Name: {patient.patient_name or 'N/A'}")
+    draw_line(f"Sex: {patient.patient_sex or 'N/A'}")
+    draw_line(f"DOB: {patient.patient_dob or 'N/A'}")
+    draw_line(spacer=True)
+    draw_line("Study Details", bold=True)
+    draw_line(f"Study UID: {report.study.study_instance_uid}")
+    draw_line(f"Study Date: {report.study.study_date or 'N/A'}")
+    draw_line(f"Description: {report.study.description or 'N/A'}")
+    draw_line(spacer=True)
+    draw_block("Findings", report.findings)
+    draw_block("Impression", report.impression)
+    draw_block("Recommendations", report.recommendations)
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
 # =====================================================
 # EXAM ORDERING (for doctors)
 # =====================================================
+
+VALID_ORDER_STATUSES = {"pending", "scheduled", "in_progress", "completed", "cancelled"}
+ORDER_TRANSITIONS = {
+    "pending": {"scheduled", "cancelled"},
+    "scheduled": {"in_progress", "cancelled"},
+    "in_progress": {"completed", "cancelled"},
+    "completed": set(),
+    "cancelled": set(),
+}
+
+
+def _set_order_status(order, new_status):
+    """Update order status and maintain relevant workflow timestamps."""
+    now_utc = datetime.utcnow()
+    order.status = new_status
+    if new_status == "scheduled" and not order.scheduled_date:
+        order.scheduled_date = now_utc
+    if new_status == "completed":
+        order.completed_date = now_utc
+
 
 @ris_bp.route("/orders", methods=["GET"])
 @login_required
 def list_orders():
     """View all exam orders"""
-    orders = ExamOrder.query.order_by(ExamOrder.order_date.desc()).all()
+    q = (request.args.get("q") or "").strip()
+    status = (request.args.get("status") or "").strip()
+    priority = (request.args.get("priority") or "").strip()
+
+    query = ExamOrder.query.join(Patient)
+
+    if q:
+        query = query.filter(
+            or_(
+                ExamOrder.order_number.ilike(f"%{q}%"),
+                Patient.patient_id.ilike(f"%{q}%"),
+                Patient.patient_name.ilike(f"%{q}%"),
+                ExamOrder.ordering_doctor_name.ilike(f"%{q}%"),
+                ExamOrder.exam_type.ilike(f"%{q}%"),
+                ExamOrder.body_part.ilike(f"%{q}%"),
+            )
+        )
+
+    if status in VALID_ORDER_STATUSES:
+        query = query.filter(ExamOrder.status == status)
+
+    if priority in {"routine", "urgent", "stat"}:
+        query = query.filter(ExamOrder.priority == priority)
+
+    orders = query.order_by(ExamOrder.order_date.desc()).all()
     return render_template("ris/orders_list.html", orders=orders)
 
 
@@ -48,6 +205,15 @@ def create_order(patient_id):
         
         db.session.add(order)
         db.session.commit()
+
+        log_activity(
+            "order_created",
+            resource=f"order_{order.id}",
+            details=(
+                f"{order.order_number} for patient {patient.patient_id} "
+                f"({order.exam_type or 'N/A'} {order.body_part or 'N/A'})"
+            ),
+        )
         
         flash(f"Exam order {order_number} created successfully!", "success")
         return redirect(url_for("ris_bp.list_orders"))
@@ -61,6 +227,11 @@ def create_order(patient_id):
 def view_order(order_id):
     """View single exam order details"""
     order = ExamOrder.query.get_or_404(order_id)
+    log_activity(
+        "order_viewed",
+        resource=f"order_{order.id}",
+        details=f"Viewed order {order.order_number}",
+    )
     return render_template("ris/order_detail.html", order=order)
 
 
@@ -69,11 +240,80 @@ def view_order(order_id):
 def cancel_order(order_id):
     """Cancel an exam order"""
     order = ExamOrder.query.get_or_404(order_id)
-    order.status = "cancelled"
+    if order.status in {"completed", "cancelled"}:
+        flash(f"Order {order.order_number} cannot be cancelled from status {order.status}", "error")
+        return redirect(url_for("ris_bp.view_order", order_id=order.id))
+    old_status = order.status
+    _set_order_status(order, "cancelled")
     db.session.commit()
+
+    log_activity(
+        "order_cancelled",
+        resource=f"order_{order.id}",
+        details=f"{order.order_number}: {old_status} -> cancelled",
+    )
     
     flash(f"Order {order.order_number} cancelled", "info")
     return redirect(url_for("ris_bp.list_orders"))
+
+
+@ris_bp.route("/orders/<int:order_id>/delete", methods=["POST"])
+@login_required
+def delete_order(order_id):
+    """Hard-delete order (admin only, cancelled-only) for controlled cleanup."""
+    if session.get("role") != "admin":
+        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
+
+    order = ExamOrder.query.get_or_404(order_id)
+    if order.status != "cancelled":
+        flash("Only cancelled orders can be deleted", "error")
+        return redirect(url_for("ris_bp.view_order", order_id=order.id))
+    if order.appointments:
+        flash("Order has linked appointments and cannot be deleted", "error")
+        return redirect(url_for("ris_bp.view_order", order_id=order.id))
+    if order.report:
+        flash("Order has linked reports and cannot be deleted", "error")
+        return redirect(url_for("ris_bp.view_order", order_id=order.id))
+
+    order_number = order.order_number
+    db.session.delete(order)
+    db.session.commit()
+
+    log_activity(
+        "order_deleted",
+        resource=f"order_{order_id}",
+        details=f"Deleted cancelled order {order_number}",
+    )
+    flash(f"Order {order_number} deleted", "success")
+    return redirect(url_for("ris_bp.list_orders"))
+
+
+@ris_bp.route("/orders/<int:order_id>/status", methods=["POST"])
+@login_required
+def update_order_status(order_id):
+    """Update order workflow status with transition validation."""
+    order = ExamOrder.query.get_or_404(order_id)
+    new_status = (request.form.get("status") or "").strip()
+
+    if new_status not in VALID_ORDER_STATUSES:
+        flash("Invalid order status", "error")
+        return redirect(request.referrer or url_for("ris_bp.view_order", order_id=order.id))
+
+    if new_status not in ORDER_TRANSITIONS.get(order.status, set()):
+        flash(f"Invalid transition from {order.status} to {new_status}", "error")
+        return redirect(request.referrer or url_for("ris_bp.view_order", order_id=order.id))
+
+    old_status = order.status
+    _set_order_status(order, new_status)
+    db.session.commit()
+
+    log_activity(
+        "order_status_updated",
+        resource=f"order_{order.id}",
+        details=f"{order.order_number}: {old_status} -> {new_status}",
+    )
+    flash(f"Order {order.order_number} updated to {new_status}", "success")
+    return redirect(request.referrer or url_for("ris_bp.view_order", order_id=order.id))
 
 
 # =====================================================
@@ -123,6 +363,84 @@ def worklist():
 # REPORTING (for radiologists)
 # =====================================================
 
+@ris_bp.route("/reports/drafts", methods=["GET"])
+@login_required
+def list_draft_reports():
+    """List draft reports for follow-up/editing."""
+    from models import Study, RadiologyReport
+
+    search_query = (request.args.get("q") or "").strip()
+
+    query = (
+        db.session.query(RadiologyReport)
+        .join(Study, RadiologyReport.study_id_fk == Study.id)
+        .join(Patient, Study.patient_id_fk == Patient.id)
+        .filter(RadiologyReport.status == "draft")
+    )
+
+    # Admin can see all drafts; other users see their own drafts.
+    if session.get("role") != "admin":
+        query = query.filter(RadiologyReport.radiologist_id == session.get("user_id"))
+
+    if search_query:
+        query = query.filter(
+            or_(
+                Patient.patient_id.ilike(f"%{search_query}%"),
+                Patient.patient_name.ilike(f"%{search_query}%"),
+                Study.study_instance_uid.ilike(f"%{search_query}%"),
+                Study.description.ilike(f"%{search_query}%"),
+                RadiologyReport.radiologist_name.ilike(f"%{search_query}%"),
+            )
+        )
+
+    drafts = query.order_by(RadiologyReport.created_at.desc()).all()
+    return render_template("ris/draft_reports.html", drafts=drafts)
+
+
+@ris_bp.route("/reports/saved", methods=["GET"])
+@login_required
+def list_saved_reports():
+    """List saved reports (final/signed by default)."""
+    from models import Study
+
+    search_query = (request.args.get("q") or "").strip()
+    status_filter = (request.args.get("status") or "").strip().lower()
+    valid_statuses = {"draft", "final", "signed", "all"}
+
+    query = (
+        db.session.query(RadiologyReport)
+        .join(Study, RadiologyReport.study_id_fk == Study.id)
+        .join(Patient, Study.patient_id_fk == Patient.id)
+    )
+
+    if session.get("role") != "admin":
+        query = query.filter(RadiologyReport.radiologist_id == session.get("user_id"))
+
+    if status_filter in {"draft", "final", "signed"}:
+        query = query.filter(RadiologyReport.status == status_filter)
+    elif status_filter != "all":
+        query = query.filter(RadiologyReport.status.in_(["final", "signed"]))
+        status_filter = "non_draft"
+
+    if search_query:
+        query = query.filter(
+            or_(
+                Patient.patient_id.ilike(f"%{search_query}%"),
+                Patient.patient_name.ilike(f"%{search_query}%"),
+                Study.study_instance_uid.ilike(f"%{search_query}%"),
+                Study.description.ilike(f"%{search_query}%"),
+                RadiologyReport.radiologist_name.ilike(f"%{search_query}%"),
+            )
+        )
+
+    reports = query.order_by(RadiologyReport.created_at.desc()).all()
+    return render_template(
+        "ris/saved_reports.html",
+        reports=reports,
+        status_filter=status_filter if status_filter in valid_statuses else "non_draft",
+    )
+
+
 @ris_bp.route("/reports/new/<int:study_id>", methods=["GET", "POST"])
 @login_required
 def create_report(study_id):
@@ -144,7 +462,7 @@ def create_report(study_id):
             )
             
             if report.status == "final":
-                report.finalized_at = datetime.now()
+                report.finalized_at = datetime.utcnow()
             
             db.session.add(report)
             db.session.commit()
@@ -174,6 +492,8 @@ def view_report(report_id):
     from models import RadiologyReport
     
     report = RadiologyReport.query.get_or_404(report_id)
+    if not _is_report_accessible(report):
+        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
     log_activity(
         "report_viewed",
         resource=f"report_{report.id}",
@@ -189,6 +509,8 @@ def edit_report(report_id):
     from models import RadiologyReport
     
     report = RadiologyReport.query.get_or_404(report_id)
+    if not _is_report_accessible(report):
+        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
     
     if request.method == "POST":
         report.findings = request.form.get("findings")
@@ -197,7 +519,7 @@ def edit_report(report_id):
         report.status = request.form.get("status", "draft")
         
         if report.status == "final" and not report.finalized_at:
-            report.finalized_at = datetime.now()
+            report.finalized_at = datetime.utcnow()
         
         db.session.commit()
         log_activity(
@@ -209,6 +531,32 @@ def edit_report(report_id):
         return redirect(url_for("ris_bp.view_report", report_id=report.id))
     
     return render_template("ris/report_form.html", study=report.study, report=report)
+
+
+@ris_bp.route("/reports/<int:report_id>/pdf", methods=["GET"])
+@login_required
+def download_report_pdf(report_id):
+    """Download report content as PDF."""
+    report = RadiologyReport.query.get_or_404(report_id)
+    if not _is_report_accessible(report):
+        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
+
+    pdf_buffer = _build_report_pdf(report)
+    patient_id = report.study.patient.patient_id or "patient"
+    filename = f"report_{report.id}_{patient_id}.pdf"
+
+    log_activity(
+        "report_pdf_downloaded",
+        resource=f"report_{report.id}",
+        details=f"Downloaded PDF for study {report.study.study_instance_uid}",
+    )
+
+    return send_file(
+        pdf_buffer,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/pdf",
+    )
 
 
 
@@ -262,7 +610,20 @@ def schedule_board():
         )
 
     appointments = query.order_by(Appointment.scheduled_start.asc()).all()
-    return render_template("ris/schedule_board.html", appointments=appointments)
+    patients = Patient.query.order_by(Patient.patient_id.asc()).all()
+    open_orders = (
+        ExamOrder.query
+        .filter(ExamOrder.status.in_(["pending", "scheduled"]))
+        .order_by(ExamOrder.order_date.desc())
+        .all()
+    )
+    return render_template(
+        "ris/schedule_board.html",
+        appointments=appointments,
+        patients=patients,
+        open_orders=open_orders,
+        selected_order_id=request.args.get("order_id", type=int),
+    )
 
 @ris_bp.route("/schedule", methods=["POST"])
 @login_required
@@ -299,7 +660,8 @@ def create_appointment():
     if appt.order_id_fk:
         order = ExamOrder.query.get(appt.order_id_fk)
         if order:
-            order.status = "scheduled"
+            _set_order_status(order, "scheduled")
+            order.scheduled_date = start_dt
 
     db.session.commit()
 

@@ -100,6 +100,8 @@ def register_blueprints(app):
 #  JINJA FILTERS
 # ----------------------------------------------------
 def register_filters(app):
+    import re
+    from html import unescape
     from pytz import timezone, utc
 
     @app.template_filter("cat_time")
@@ -107,8 +109,16 @@ def register_filters(app):
         if utc_dt is None:
             return ''
         cat = timezone('Africa/Harare')
-        local_dt = utc_dt.replace(tzinfo=utc).astimezone(cat)
+        if utc_dt.tzinfo is None:
+            utc_dt = utc.localize(utc_dt)
+        local_dt = utc_dt.astimezone(cat)
         return local_dt.strftime(fmt)
+
+    @app.template_filter("strip_html")
+    def strip_html_filter(value):
+        if value is None:
+            return ""
+        return unescape(re.sub(r"<[^>]+>", "", str(value)))
 
 
 # ----------------------------------------------------

@@ -14,7 +14,12 @@
                 Ward: {{ patient.ward.ward_name if patient.ward else 'Unassigned' }}
             </p>
         </div>
-        <a href="{{ url_for('patients_bp.patients_list') }}">Back to Patients</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+            {% if session.get('user_id') %}
+            <a href="{{ url_for('ris_bp.create_order', patient_id=patient.id) }}" class="btn btn-primary">Create RIS Order</a>
+            {% endif %}
+            <a href="{{ url_for('patients_bp.patients_list') }}">Back to Patients</a>
+        </div>
     </div>
 
     <h3 style="margin-top: 22px; color: #004080;">Studies</h3>

@@ -1,142 +1,82 @@
-<!DOCTYPE html>
-<head>
-    <title>New Exam Order - MCH PACS</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="logo">
-                <img src="{{ url_for('static', filename='images/mpilo_logo_200px.png') }}" alt="MCH Logo">
-            </div>
-            <h1>New Radiology Exam Order</h1>
-                <nav>
-                    <a href="{{ url_for('ris_bp.list_orders') }}">Back to Orders</a>
-                    <a href="{{ url_for('home_bp.home_page') }}">Dashboard</a>
-                </nav>
-        </header>
+{% extends 'base.html' %}
 
-        <main>
-            {% include 'ris/_subnav.html' %}
-            <div class="form-container">
-                <h2>Order Exam for: {{ patient.patient_name or patient.patient_id }}</h2>
-                
-                <form method="POST">
-                    <div class="form-group">
-                        <label>Patient ID:</label>
-                        <input type="text" value="{{ patient.patient_id }}" readonly>
-                    </div>
+{% block title %}New Exam Order - MCH PACS{% endblock %}
 
-                    <div class="form-group">
-                        <label>Patient Name:</label>
-                        <input type="text" value="{{ patient.patient_name }}" readonly>
-                    </div>
+{% block body %}
+<main class="worklist-container">
+    {% include 'ris/_subnav.html' %}
 
-                    <div class="form-group">
-                        <label for="doctor_name">Ordering Doctor: *</label>
-                        <input type="text" id="doctor_name" name="doctor_name" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="exam_type">Exam Type: *</label>
-                        <select id="exam_type" name="exam_type" required>
-                            <option value="">-- Select Exam Type --</option>
-                            <option value="CT">CT Scan</option>
-                            <option value="MRI">MRI</option>
-                            <option value="X-Ray">X-Ray</option>
-                            <option value="Ultrasound">Ultrasound</option>
-                            <option value="Mammography">Mammography</option>
-                            <option value="Fluoroscopy">Fluoroscopy</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="body_part">Body Part: *</label>
-                        <input type="text" id="body_part" name="body_part" 
-                               placeholder="e.g., Head, Chest, Abdomen" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="priority">Priority: *</label>
-                        <select id="priority" name="priority" required>
-                            <option value="routine" selected>Routine</option>
-                            <option value="urgent">Urgent</option>
-                            <option value="stat">STAT (Emergency)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="clinical_indication">Clinical Indication / Reason for Exam: *</label>
-                        <textarea id="clinical_indication" name="clinical_indication" 
-                                  rows="4" required 
-                                  placeholder="Describe symptoms, suspected diagnosis, or reason for ordering exam..."></textarea>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Submit Order</button>
-                        <a href="{{ url_for('ris_bp.list_orders') }}" class="btn btn-secondary">Cancel</a>
-                    </div>
-                </form>
-            </div>
-        </main>
+    <div class="page-header">
+        <h2>New Radiology Exam Order</h2>
     </div>
 
-    <style>
-        .form-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .form-group input[readonly] {
-            background: #f5f5f5;
-        }
-        .form-actions {
-            margin-top: 30px;
-            display: flex;
-            gap: 10px;
-        }
-        .btn-primary {
-            background: #1976d2;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .btn-primary:hover {
-            background: #1565c0;
-        }
-        .btn-secondary {
-            background: #757575;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 4px;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn-secondary:hover {
-            background: #616161;
-        }
-    </style>
-</body>
-</html>
+    <div class="table-card" style="max-width: 900px; margin: 0 auto;">
+        <h3>Order Exam For: {{ patient.patient_name or patient.patient_id }}</h3>
+
+        <form method="POST" class="schedule-create-form">
+            <div>
+                <label>Patient ID</label>
+                <input type="text" value="{{ patient.patient_id }}" readonly>
+            </div>
+            <div>
+                <label>Patient Name</label>
+                <input type="text" value="{{ patient.patient_name or 'N/A' }}" readonly>
+            </div>
+            <div>
+                <label for="doctor_name">Ordering Doctor *</label>
+                <input
+                    type="text"
+                    id="doctor_name"
+                    name="doctor_name"
+                    value="{{ session.get('full_name', '') }}"
+                    required
+                >
+            </div>
+            <div>
+                <label for="exam_type">Exam Type *</label>
+                <select id="exam_type" name="exam_type" required>
+                    <option value="">Select Exam Type</option>
+                    <option value="CT">CT Scan</option>
+                    <option value="MRI">MRI</option>
+                    <option value="X-Ray">X-Ray</option>
+                    <option value="Ultrasound">Ultrasound</option>
+                    <option value="Mammography">Mammography</option>
+                    <option value="Fluoroscopy">Fluoroscopy</option>
+                </select>
+            </div>
+            <div>
+                <label for="body_part">Body Part *</label>
+                <input
+                    type="text"
+                    id="body_part"
+                    name="body_part"
+                    placeholder="e.g., Head, Chest, Abdomen"
+                    required
+                >
+            </div>
+            <div>
+                <label for="priority">Priority *</label>
+                <select id="priority" name="priority" required>
+                    <option value="routine" selected>Routine</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="stat">STAT (Emergency)</option>
+                </select>
+            </div>
+            <div class="field-full">
+                <label for="clinical_indication">Clinical Indication / Reason *</label>
+                <textarea
+                    id="clinical_indication"
+                    name="clinical_indication"
+                    rows="4"
+                    placeholder="Describe symptoms, suspected diagnosis, or reason for ordering exam..."
+                    required
+                ></textarea>
+            </div>
+            <div class="field-full schedule-actions">
+                <button type="submit" class="btn btn-primary">Submit Order</button>
+                <a href="{{ url_for('ris_bp.list_orders') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</main>
+{% endblock %}

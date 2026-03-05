@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Saved Reports - MCH PACS{% endblock %}
+
+{% block body %}
+<main class="worklist-container">
+    {% include 'ris/_subnav.html' %}
+
+    <div class="page-header">
+        <h2>Saved Reports</h2>
+    </div>
+
+    <div class="filters">
+        <form method="GET" class="filter-form">
+            <input
+                type="text"
+                name="q"
+                value="{{ request.args.get('q', '') }}"
+                placeholder="Search patient ID, patient name, study UID, description, radiologist"
+            >
+            <select name="status" onchange="this.form.submit()">
+                <option value="" {% if status_filter == 'non_draft' %}selected{% endif %}>Final + Signed</option>
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+                <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Draft</option>
+                <option value="final" {% if status_filter == 'final' %}selected{% endif %}>Final</option>
+                <option value="signed" {% if status_filter == 'signed' %}selected{% endif %}>Signed</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Search</button>
+            <a href="{{ url_for('ris_bp.list_saved_reports') }}" class="btn btn-secondary">Clear</a>
+        </form>
+    </div>
+
+    <div class="table-card">
+        <table class="worklist-table">
+            <thead>
+                <tr>
+                    <th>Report ID</th>
+                    <th>Status</th>
+                    <th>Patient ID</th>
+                    <th>Patient Name</th>
+                    <th>Study Date</th>
+                    <th>Description</th>
+                    <th>Author</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in reports %}
+                <tr>
+                    <td>{{ report.id }}</td>
+                    <td>{{ (report.status or 'N/A') | upper }}</td>
+                    <td>{{ report.study.patient.patient_id }}</td>
+                    <td>{{ report.study.patient.patient_name or 'N/A' }}</td>
+                    <td>{{ report.study.study_date or 'N/A' }}</td>
+                    <td>{{ report.study.description or 'N/A' }}</td>
+                    <td>{{ report.radiologist_name or 'N/A' }}</td>
+                    <td>{{ report.created_at | cat_time('%Y-%m-%d %H:%M') if report.created_at else 'N/A' }}{% if report.created_at %} CAT{% endif %}</td>
+                    <td>
+                        <a href="{{ url_for('ris_bp.view_report', report_id=report.id) }}" class="btn btn-sm">View</a>
+                        <a href="{{ url_for('ris_bp.download_report_pdf', report_id=report.id) }}" class="btn btn-sm btn-secondary">PDF</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="worklist-empty">No saved reports found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+{% endblock %}

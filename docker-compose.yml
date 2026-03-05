@@ -38,7 +38,9 @@ services:
     volumes:
       - ./migrations:/app/migrations
       - ./static/uploads:/app/static/uploads      # ← ADD THIS LINE
-      - ./static/uploads:/app/static/uploads/previews  # ← ADD THIS LINE TOO (for JPEG previews)
+      - ./templates:/app/templates
+      - ./static:/app/static
+      - ./Blueprints:/app/Blueprints
     depends_on:
       db:
         condition: service_healthy

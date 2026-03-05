@@ -9,6 +9,68 @@
         <h2>Scheduling Board</h2>
     </div>
 
+    <div class="table-card schedule-create-card">
+        <h3>Create Appointment</h3>
+        <form method="POST" action="{{ url_for('ris_bp.create_appointment') }}" class="schedule-create-form">
+            <div>
+                <label for="patient_id_fk">Patient *</label>
+                <select id="patient_id_fk" name="patient_id_fk" required>
+                    <option value="">Select patient</option>
+                    {% for patient in patients %}
+                    <option value="{{ patient.id }}">{{ patient.patient_id }} - {{ patient.patient_name or 'N/A' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="order_id_fk">Link Order (optional)</label>
+                <select id="order_id_fk" name="order_id_fk">
+                    <option value="">No linked order</option>
+                    {% for order in open_orders %}
+                    <option value="{{ order.id }}" data-patient-id="{{ order.patient_id_fk }}" data-exam-type="{{ order.exam_type or '' }}" {% if selected_order_id and selected_order_id == order.id %}selected{% endif %}>
+                        {{ order.order_number }} - {{ order.patient.patient_id if order.patient else 'N/A' }} - {{ order.exam_type or 'N/A' }} ({{ order.status }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="appt_modality">Modality *</label>
+                <select id="appt_modality" name="modality" required>
+                    <option value="">Select modality</option>
+                    <option value="CT">CT</option>
+                    <option value="MRI">MRI</option>
+                    <option value="XR">X-Ray</option>
+                    <option value="US">Ultrasound</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="resource_name">Scanner/Room *</label>
+                <input id="resource_name" type="text" name="resource_name" placeholder="e.g. CT Scanner 1" required>
+            </div>
+
+            <div>
+                <label for="scheduled_start">Start *</label>
+                <input id="scheduled_start" type="datetime-local" name="scheduled_start" required>
+            </div>
+
+            <div>
+                <label for="scheduled_end">End *</label>
+                <input id="scheduled_end" type="datetime-local" name="scheduled_end" required>
+            </div>
+
+            <div class="field-full">
+                <label for="notes">Notes</label>
+                <textarea id="notes" name="notes" rows="2" placeholder="Optional scheduling notes"></textarea>
+            </div>
+
+            <div class="field-full schedule-actions">
+                <button type="submit" class="btn btn-primary">Create Appointment</button>
+            </div>
+        </form>
+    </div>
+
     <div class="filters">
         <form method="GET" class="filter-form">
             <input type="date" name="date" value="{{ request.args.get('date','') }}">
@@ -55,18 +117,28 @@
                     <td>{{ appt.resource_name }}</td>
                     <td>{{ appt.status }}</td>
                     <td>
-                        <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
-                            <input type="hidden" name="status" value="arrived">
-                            <button class="btn btn-sm">Arrive</button>
-                        </form>
-                        <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
-                            <input type="hidden" name="status" value="in_progress">
-                            <button class="btn btn-sm">Start</button>
-                        </form>
-                        <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
-                            <input type="hidden" name="status" value="completed">
-                            <button class="btn btn-sm btn-primary">Complete</button>
-                        </form>
+                        <div class="schedule-row-actions">
+                            <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
+                                <input type="hidden" name="status" value="arrived">
+                                <button class="btn btn-sm">Arrive</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
+                                <input type="hidden" name="status" value="in_progress">
+                                <button class="btn btn-sm">Start</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
+                                <input type="hidden" name="status" value="completed">
+                                <button class="btn btn-sm btn-primary">Complete</button>
+                            </form>
+
+                            {% if appt.status not in ['completed', 'cancelled', 'no_show'] %}
+                            <form method="POST" action="{{ url_for('ris_bp.reschedule_appointment', appointment_id=appt.id) }}" class="reschedule-inline-form">
+                                <input type="datetime-local" name="scheduled_start" value="{{ appt.scheduled_start.strftime('%Y-%m-%dT%H:%M') }}" required>
+                                <input type="datetime-local" name="scheduled_end" value="{{ appt.scheduled_end.strftime('%Y-%m-%dT%H:%M') }}" required>
+                                <button class="btn btn-sm btn-secondary" type="submit">Reschedule</button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% else %}
@@ -78,4 +150,38 @@
         </table>
     </div>
 </main>
+
+<script>
+const orderSelect = document.getElementById('order_id_fk');
+const patientSelect = document.getElementById('patient_id_fk');
+const modalitySelect = document.getElementById('appt_modality');
+
+function normalizeExamType(examType) {
+    const value = (examType || '').toUpperCase();
+    if (value.includes('CT')) return 'CT';
+    if (value.includes('MRI')) return 'MRI';
+    if (value.includes('X-RAY') || value.includes('XR')) return 'XR';
+    if (value.includes('ULTRASOUND') || value.includes('US')) return 'US';
+    return '';
+}
+
+if (orderSelect) {
+    orderSelect.addEventListener('change', function () {
+        const selected = this.options[this.selectedIndex];
+        const patientId = selected.dataset.patientId || '';
+        const examType = normalizeExamType(selected.dataset.examType || '');
+
+        if (patientId) {
+            patientSelect.value = patientId;
+        }
+        if (examType) {
+            modalitySelect.value = examType;
+        }
+    });
+
+    if (orderSelect.value) {
+        orderSelect.dispatchEvent(new Event('change'));
+    }
+}
+</script>
 {% endblock %}

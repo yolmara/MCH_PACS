@@ -6,8 +6,36 @@
 <main class="worklist-container">
     {% include 'ris/_subnav.html' %}
 
-    <div class="page-header">
+    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
         <h2>All Exam Orders</h2>
+        <a href="{{ url_for('patients_bp.patients_list') }}" class="btn btn-primary">Create RIS Order</a>
+    </div>
+
+    <div class="filters">
+        <form method="GET" class="filter-form">
+            <input
+                type="text"
+                name="q"
+                value="{{ request.args.get('q', '') }}"
+                placeholder="Search order #, patient ID/name, doctor, exam, body part"
+            >
+            <select name="status" onchange="this.form.submit()">
+                <option value="">All Statuses</option>
+                <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="scheduled" {% if request.args.get('status') == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                <option value="in_progress" {% if request.args.get('status') == 'in_progress' %}selected{% endif %}>In Progress</option>
+                <option value="completed" {% if request.args.get('status') == 'completed' %}selected{% endif %}>Completed</option>
+                <option value="cancelled" {% if request.args.get('status') == 'cancelled' %}selected{% endif %}>Cancelled</option>
+            </select>
+            <select name="priority" onchange="this.form.submit()">
+                <option value="">All Priorities</option>
+                <option value="routine" {% if request.args.get('priority') == 'routine' %}selected{% endif %}>Routine</option>
+                <option value="urgent" {% if request.args.get('priority') == 'urgent' %}selected{% endif %}>Urgent</option>
+                <option value="stat" {% if request.args.get('priority') == 'stat' %}selected{% endif %}>STAT</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Search</button>
+            <a href="{{ url_for('ris_bp.list_orders') }}" class="btn btn-secondary">Clear</a>
+        </form>
     </div>
 
     <div class="table-card">
@@ -46,9 +74,35 @@
                     <td>{{ order.ordering_doctor_name }}</td>
                     <td>
                         <a href="{{ url_for('ris_bp.view_order', order_id=order.id) }}" class="btn btn-sm">View</a>
+                        {% if order.status in ['pending', 'scheduled'] %}
+                        <a href="{{ url_for('ris_bp.schedule_board', order_id=order.id) }}" class="btn btn-sm btn-secondary">Schedule</a>
+                        {% endif %}
                         {% if order.status == 'pending' %}
+                        <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
+                            <input type="hidden" name="status" value="scheduled">
+                            <button type="submit" class="btn btn-sm">Mark Scheduled</button>
+                        </form>
+                        {% endif %}
+                        {% if order.status == 'scheduled' %}
+                        <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
+                            <input type="hidden" name="status" value="in_progress">
+                            <button type="submit" class="btn btn-sm">Start</button>
+                        </form>
+                        {% endif %}
+                        {% if order.status == 'in_progress' %}
+                        <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
+                            <input type="hidden" name="status" value="completed">
+                            <button type="submit" class="btn btn-sm btn-primary">Complete</button>
+                        </form>
+                        {% endif %}
+                        {% if order.status in ['pending', 'scheduled', 'in_progress'] %}
                         <form method="POST" action="{{ url_for('ris_bp.cancel_order', order_id=order.id) }}" class="inline-form">
                             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Cancel this order?')">Cancel</button>
+                        </form>
+                        {% endif %}
+                        {% if session.get('role') == 'admin' and order.status == 'cancelled' and not order.appointments and not order.report %}
+                        <form method="POST" action="{{ url_for('ris_bp.delete_order', order_id=order.id) }}" class="inline-form">
+                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this cancelled order permanently?')">Delete</button>
                         </form>
                         {% endif %}
                     </td>

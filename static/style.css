@@ -1430,6 +1430,23 @@ body {
             background: #1e3a8a;
             border-color: #1e3a8a;
         }
+        .ris-subnav-badge {
+            display: inline-block;
+            margin-left: 6px;
+            min-width: 18px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: #dc2626;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.4;
+        }
+        .ris-subnav a.active .ris-subnav-badge {
+            background: #fff;
+            color: #1e3a8a;
+        }
         .ris-report-container {
             display: grid;
             grid-template-columns: 1fr 2fr;
@@ -1518,6 +1535,64 @@ body {
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .schedule-create-card {
+            margin-bottom: 20px;
+        }
+        .schedule-create-card h3 {
+            margin-top: 0;
+            color: #1e3a8a;
+        }
+        .schedule-create-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+        .schedule-create-form label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #334155;
+        }
+        .schedule-create-form select,
+        .schedule-create-form input,
+        .schedule-create-form textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font: inherit;
+        }
+        .schedule-create-form textarea {
+            resize: vertical;
+            min-height: 56px;
+        }
+        .schedule-create-form .field-full {
+            grid-column: 1 / -1;
+        }
+        .schedule-actions {
+            display: flex;
+            justify-content: flex-end;
+        }
+        .schedule-row-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+        .reschedule-inline-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+        .reschedule-inline-form input[type="datetime-local"] {
+            padding: 5px 7px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 12px;
         }
         .filter-form {
             display: flex;
