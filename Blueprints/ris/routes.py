@@ -8,10 +8,14 @@ from io import BytesIO
 from html import unescape
 import re
 import textwrap
+import os
+from uuid import uuid4
 from pytz import timezone, utc
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from werkzeug.utils import secure_filename
 
 
 
@@ -62,6 +66,41 @@ def _format_cat_time(dt_obj):
 def _strip_html(value):
     value = value or ""
     return unescape(re.sub(r"<[^>]+>", "", value))
+
+
+ALLOWED_SCREENSHOT_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
+
+
+def _is_allowed_screenshot(filename):
+    if "." not in filename:
+        return False
+    return filename.rsplit(".", 1)[1].lower() in ALLOWED_SCREENSHOT_EXTENSIONS
+
+
+def _report_screenshot_dir(report_id):
+    return os.path.join(current_app.config["UPLOAD_FOLDER"], "reports", str(report_id), "screenshots")
+
+
+def _report_screenshot_assets(report_id):
+    assets = []
+    directory = _report_screenshot_dir(report_id)
+    if not os.path.isdir(directory):
+        return assets
+
+    for filename in sorted(os.listdir(directory)):
+        if not _is_allowed_screenshot(filename):
+            continue
+        full_path = os.path.join(directory, filename)
+        if not os.path.isfile(full_path):
+            continue
+        assets.append(
+            {
+                "filename": filename,
+                "path": full_path,
+                "url": url_for("static", filename=f"uploads/reports/{report_id}/screenshots/{filename}"),
+            }
+        )
+    return assets
 
 
 def _build_report_pdf(report):
@@ -118,6 +157,39 @@ def _build_report_pdf(report):
     draw_block("Findings", report.findings)
     draw_block("Impression", report.impression)
     draw_block("Recommendations", report.recommendations)
+
+    screenshots = _report_screenshot_assets(report.id)
+    if screenshots:
+        for index, screenshot in enumerate(screenshots, start=1):
+            pdf.showPage()
+            pdf.setFont("Helvetica-Bold", 14)
+            pdf.drawString(margin, page_height - margin, f"Image Appendix {index}/{len(screenshots)}")
+            pdf.setFont("Helvetica", 10)
+            pdf.drawString(margin, page_height - margin - line_height, screenshot["filename"])
+
+            image_top = page_height - margin - (line_height * 2) - 8
+            available_width = page_width - (margin * 2)
+            available_height = image_top - margin
+            try:
+                image_reader = ImageReader(screenshot["path"])
+                image_width, image_height = image_reader.getSize()
+                scale = min(available_width / image_width, available_height / image_height)
+                draw_width = image_width * scale
+                draw_height = image_height * scale
+                draw_x = (page_width - draw_width) / 2
+                draw_y = margin + ((available_height - draw_height) / 2)
+                pdf.drawImage(
+                    image_reader,
+                    draw_x,
+                    draw_y,
+                    width=draw_width,
+                    height=draw_height,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception:
+                pdf.setFont("Helvetica", 10)
+                pdf.drawString(margin, image_top - line_height, "Unable to render this screenshot.")
 
     pdf.save()
     buffer.seek(0)
@@ -479,10 +551,10 @@ def create_report(study_id):
             db.session.rollback()
             current_app.logger.exception("Failed to save report for study %s", study_id)
             flash("Failed to save report. Please try again.", "error")
-            return render_template("ris/report_form.html", study=study, report=None), 500
+            return render_template("ris/report_form.html", study=study, report=None, screenshot_assets=[]), 500
     
     # GET - show form
-    return render_template("ris/report_form.html", study=study)
+    return render_template("ris/report_form.html", study=study, screenshot_assets=[])
 
 
 @ris_bp.route("/reports/<int:report_id>", methods=["GET"])
@@ -499,7 +571,11 @@ def view_report(report_id):
         resource=f"report_{report.id}",
         details=f"Viewed report for study {report.study.study_instance_uid}"
     )
-    return render_template("ris/report_view.html", report=report)
+    return render_template(
+        "ris/report_view.html",
+        report=report,
+        screenshot_assets=_report_screenshot_assets(report.id),
+    )
 
 
 @ris_bp.route("/reports/<int:report_id>/edit", methods=["GET", "POST"])
@@ -530,7 +606,78 @@ def edit_report(report_id):
         flash("Report updated successfully!", "success")
         return redirect(url_for("ris_bp.view_report", report_id=report.id))
     
-    return render_template("ris/report_form.html", study=report.study, report=report)
+    return render_template(
+        "ris/report_form.html",
+        study=report.study,
+        report=report,
+        screenshot_assets=_report_screenshot_assets(report.id),
+    )
+
+
+@ris_bp.route("/reports/<int:report_id>/screenshots", methods=["POST"])
+@login_required
+def upload_report_screenshot(report_id):
+    """Attach screenshot evidence to a report."""
+    report = RadiologyReport.query.get_or_404(report_id)
+    if not _is_report_accessible(report):
+        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
+
+    screenshot = request.files.get("screenshot")
+    if not screenshot or not screenshot.filename:
+        flash("Please choose an image screenshot to upload.", "error")
+        return redirect(url_for("ris_bp.edit_report", report_id=report.id))
+
+    original_name = secure_filename(screenshot.filename)
+    if not _is_allowed_screenshot(original_name):
+        flash("Unsupported screenshot format. Use PNG, JPG, JPEG, or WEBP.", "error")
+        return redirect(url_for("ris_bp.edit_report", report_id=report.id))
+
+    extension = original_name.rsplit(".", 1)[1].lower()
+    target_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid4().hex[:8]}.{extension}"
+    target_dir = _report_screenshot_dir(report.id)
+    os.makedirs(target_dir, exist_ok=True)
+    screenshot.save(os.path.join(target_dir, target_name))
+
+    log_activity(
+        "report_screenshot_added",
+        resource=f"report_{report.id}",
+        details=f"Attached screenshot {target_name}",
+    )
+
+    # XHR upload from clipboard paste flow.
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "filename": target_name}), 200
+
+    flash("Screenshot attached to report.", "success")
+    return redirect(url_for("ris_bp.edit_report", report_id=report.id))
+
+
+@ris_bp.route("/reports/<int:report_id>/screenshots/<path:filename>/delete", methods=["POST"])
+@login_required
+def delete_report_screenshot(report_id, filename):
+    """Remove screenshot evidence from a report."""
+    report = RadiologyReport.query.get_or_404(report_id)
+    if not _is_report_accessible(report):
+        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
+
+    safe_name = secure_filename(filename)
+    if not safe_name or safe_name != filename:
+        flash("Invalid screenshot reference.", "error")
+        return redirect(url_for("ris_bp.edit_report", report_id=report.id))
+
+    screenshot_path = os.path.join(_report_screenshot_dir(report.id), safe_name)
+    if not os.path.isfile(screenshot_path):
+        flash("Screenshot not found.", "error")
+        return redirect(url_for("ris_bp.edit_report", report_id=report.id))
+
+    os.remove(screenshot_path)
+    log_activity(
+        "report_screenshot_deleted",
+        resource=f"report_{report.id}",
+        details=f"Removed screenshot {safe_name}",
+    )
+    flash("Screenshot removed.", "info")
+    return redirect(url_for("ris_bp.edit_report", report_id=report.id))
 
 
 @ris_bp.route("/reports/<int:report_id>/pdf", methods=["GET"])
@@ -747,4 +894,27 @@ def reschedule_appointment(appointment_id):
     )
 
     flash("Appointment rescheduled", "success")
+    return redirect(url_for("ris_bp.schedule_board"))
+
+
+@ris_bp.route("/schedule/<int:appointment_id>/delete", methods=["POST"])
+@login_required
+def delete_appointment(appointment_id):
+    """Delete completed appointments from schedule board."""
+    appt = Appointment.query.get_or_404(appointment_id)
+    if appt.status != "completed":
+        flash("Only completed appointments can be deleted", "error")
+        return redirect(url_for("ris_bp.schedule_board"))
+
+    appt_info = f"id={appt.id}, patient={appt.patient_id_fk}, modality={appt.modality}, start={appt.scheduled_start}"
+    db.session.delete(appt)
+    db.session.commit()
+
+    log_activity(
+        "appointment_deleted",
+        resource=f"appointment_{appointment_id}",
+        details=appt_info
+    )
+
+    flash("Completed appointment deleted", "success")
     return redirect(url_for("ris_bp.schedule_board"))

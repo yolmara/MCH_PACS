@@ -1,8 +1,50 @@
 from flask import Blueprint, render_template, request, redirect, jsonify, url_for, current_app
+from datetime import datetime
+import json
 import os
 from models import Study, Series, Instance, db
+from dicom_utils.activity_logger import log_activity
 
 dicom_bp = Blueprint("dicom_bp", __name__)
+
+
+@dicom_bp.route("/notify", methods=["POST"])
+def orthanc_notify():
+    expected_token = (os.environ.get("ORTHANC_NOTIFY_TOKEN") or "").strip()
+    if expected_token:
+        received_token = (request.headers.get("X-Orthanc-Token") or "").strip()
+        if received_token != expected_token:
+            return jsonify({"error": "Unauthorized notification"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    instance_id = str(payload.get("instance_id") or payload.get("ID") or "").strip()
+    if not instance_id:
+        return jsonify({"error": "instance_id is required"}), 400
+
+    incoming_dir = os.path.join(current_app.root_path, "incoming")
+    os.makedirs(incoming_dir, exist_ok=True)
+    log_path = os.path.join(incoming_dir, "orthanc_notifications.log")
+
+    record = {
+        "received_at": datetime.utcnow().isoformat() + "Z",
+        "instance_id": instance_id,
+        "remote_addr": request.remote_addr,
+        "payload": payload,
+    }
+
+    try:
+        with open(log_path, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=True) + "\n")
+    except OSError:
+        current_app.logger.exception("Failed to persist Orthanc notification")
+
+    current_app.logger.info("Orthanc notification received for instance %s", instance_id)
+    log_activity(
+        "orthanc_notify",
+        resource=f"orthanc_instance_{instance_id}",
+        details=f"Received Orthanc callback from {request.remote_addr}",
+    )
+    return jsonify({"status": "accepted", "instance_id": instance_id}), 202
 
 
 ########## Viewer Route ##########

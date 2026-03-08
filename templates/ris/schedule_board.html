@@ -138,6 +138,12 @@
                                 <button class="btn btn-sm btn-secondary" type="submit">Reschedule</button>
                             </form>
                             {% endif %}
+
+                            {% if appt.status == 'completed' %}
+                            <form method="POST" action="{{ url_for('ris_bp.delete_appointment', appointment_id=appt.id) }}" class="inline-form">
+                                <button class="btn btn-sm btn-danger" type="submit" onclick="return confirm('Delete this completed appointment?')">Delete</button>
+                            </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>

@@ -1,0 +1,24 @@
+{
+  "Name": "MCH_PACS",
+  "DicomAet": "MCH_PACS",
+  "DicomPort": 4242,
+  "HttpPort": 8042,
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "admin": "admin"
+  },
+  "StorageDirectory": "/var/lib/orthanc/db",
+  "Plugins": [],
+  "LuaScripts": ["/etc/orthanc/notify.lua"],
+
+  "DicomWeb": {
+    "Enable": true,
+    "Root": "/dicomweb/",
+    "EnableWado": true,
+    "WadoRoot": "/wado"
+  },
+
+  "HttpForwardHeaders": {
+    "X-Forwarded-For": "X-Forwarded-For"
+  }
+}

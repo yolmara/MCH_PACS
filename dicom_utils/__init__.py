@@ -5,6 +5,7 @@ from .dicom.convert import dicom_to_jpeg
 
 # Expose DB logic (patient, study, series upserts)
 from .db.upserts import (
+    PatientIdentityConflictError,
     upsert_patient,
     upsert_study,
     upsert_series,
@@ -28,6 +29,7 @@ __all__ = [
     "convert_to_jpeg",
 
     # db upserts
+    "PatientIdentityConflictError",
     "upsert_patient",
     "upsert_study",
     "upsert_series",
@@ -40,4 +42,3 @@ __all__ = [
     "build_instance_path",
     "ensure_patient_folder",
 ]
-

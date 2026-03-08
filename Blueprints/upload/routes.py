@@ -2,7 +2,7 @@ from Blueprints.auth.routes import login_required
 from flask import (Blueprint, request, jsonify, render_template, redirect)
 from werkzeug.utils import secure_filename
 from dicom_utils.activity_logger import log_activity
-from models import db
+from models import db, Patient
 import os
 import pydicom
 from datetime import datetime
@@ -14,13 +14,84 @@ from dicom_utils import (
     build_instance_path,
     get_patient_folder,
     ensure_patient_folder,
-    upsert_patient, 
     upsert_study, 
     upsert_series, 
     upsert_instance
 )
 
 upload_bp = Blueprint("upload_bp", __name__)
+
+
+class PatientIdentityConflictError(ValueError):
+    """Raised when uploaded files conflict with an existing patient identity."""
+
+
+class InvalidDICOMInstanceError(ValueError):
+    """Raised when a file is not a storable DICOM instance for this workflow."""
+
+
+def _norm(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text.lower() if text else None
+
+
+def _assert_patient_identity_consistent(patient_id, name=None, sex=None, dob=None):
+    existing = Patient.query.filter_by(patient_id=patient_id).first()
+    if not existing:
+        return
+
+    conflicts = []
+    existing_name, incoming_name = _norm(existing.patient_name), _norm(name)
+    if existing_name and incoming_name and existing_name != incoming_name:
+        conflicts.append(f"name existing='{existing.patient_name}' incoming='{name}'")
+
+    existing_sex, incoming_sex = _norm(existing.patient_sex), _norm(sex)
+    if existing_sex and incoming_sex and existing_sex != incoming_sex:
+        conflicts.append(f"sex existing='{existing.patient_sex}' incoming='{sex}'")
+
+    existing_dob, incoming_dob = _norm(existing.patient_dob), _norm(dob)
+    if existing_dob and incoming_dob and existing_dob != incoming_dob:
+        conflicts.append(f"dob existing='{existing.patient_dob}' incoming='{dob}'")
+
+    if conflicts:
+        raise PatientIdentityConflictError(
+            f"PatientID '{patient_id}' already exists with different demographics: " + "; ".join(conflicts)
+        )
+
+
+def _assert_required_instance_uids(dcm):
+    required = ("StudyInstanceUID", "SeriesInstanceUID", "SOPInstanceUID")
+    missing = [field for field in required if not getattr(dcm, field, None)]
+    if missing:
+        missing_list = ", ".join(missing)
+        raise InvalidDICOMInstanceError(
+            f"Not a storable image instance (missing {missing_list}). "
+            "Select the folder containing actual DICOM image slices, not viewer/support files."
+        )
+
+
+def _upsert_patient_local(patient_id, name=None, sex=None, dob=None):
+    patient = Patient.query.filter_by(patient_id=patient_id).first()
+    if not patient:
+        patient = Patient(
+            patient_id=patient_id,
+            patient_name=name,
+            patient_sex=sex,
+            patient_dob=dob,
+        )
+        db.session.add(patient)
+        db.session.flush()
+        return patient
+
+    if name and not patient.patient_name:
+        patient.patient_name = name
+    if sex and not patient.patient_sex:
+        patient.patient_sex = sex
+    if dob and not patient.patient_dob:
+        patient.patient_dob = dob
+    return patient
 
 @upload_bp.route("/folder", methods=["GET"])
 @login_required
@@ -40,7 +111,7 @@ def upload_folder():
         return jsonify({"error": "No files uploaded"}), 400
 
     files = request.files.getlist("files")
-    patient_id = request.form.get("patient_id")
+    patient_id = (request.form.get("patient_id") or "").strip()
     ward_id = request.form.get("ward_id")
 
     if not patient_id:
@@ -54,6 +125,7 @@ def upload_folder():
 
     created_files = []
     errors = []
+    source_dicom_patient_id = None
 
     for file in files:
         # FIX: Ensure .dcm extension
@@ -66,7 +138,18 @@ def upload_folder():
 
         try:
             dcm = load_dicom(temp_path)
+            _assert_required_instance_uids(dcm)
             meta = extract_metadata(dcm)
+
+            dicom_patient_id = str(getattr(dcm, "PatientID", "")).strip()
+            if dicom_patient_id:
+                if source_dicom_patient_id and dicom_patient_id != source_dicom_patient_id:
+                    raise PatientIdentityConflictError(
+                        f"Mixed DICOM PatientID values in one folder: "
+                        f"'{source_dicom_patient_id}' and '{dicom_patient_id}'. "
+                        "Upload one patient per folder."
+                    )
+                source_dicom_patient_id = dicom_patient_id
 
             # Safe conversion
             patient_name = str(meta.get("PatientName")) if meta.get("PatientName") else None
@@ -74,8 +157,15 @@ def upload_folder():
             patient_dob = str(meta.get("PatientBirthDate")) if meta.get("PatientBirthDate") else None
             study_desc = str(meta.get("StudyDescription")) if meta.get("StudyDescription") else None
 
+            _assert_patient_identity_consistent(
+                patient_id=patient_id,
+                name=patient_name,
+                sex=patient_sex,
+                dob=patient_dob,
+            )
+
             # Upsert patient
-            patient = upsert_patient(
+            patient = _upsert_patient_local(
                 patient_id=patient_id,
                 name=patient_name,
                 sex=patient_sex,
@@ -101,11 +191,16 @@ def upload_folder():
             )
 
             # Generate preview
-            preview_path = dicom_to_jpeg(
-                dcm=dcm,
-                output_dir=os.path.join(patient_dir, "previews"),
-                instance_uid=meta["SOPInstanceUID"]
-            )
+            preview_path = None
+            try:
+                preview_path = dicom_to_jpeg(
+                    dcm=dcm,
+                    output_dir=os.path.join(patient_dir, "previews"),
+                    instance_uid=meta["SOPInstanceUID"]
+                )
+            except Exception:
+                # Keep storing valid instances even if preview conversion fails.
+                preview_path = None
 
             # Upsert instance
             instance = upsert_instance(
@@ -123,10 +218,41 @@ def upload_folder():
                 "preview": preview_path
             })
 
-        except Exception as e:
+        except PatientIdentityConflictError as e:
+            db.session.rollback()
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except OSError:
+                pass
             errors.append({
                 "file": filename,
-                "error": str(e)
+                "error": str(e),
+                "type": "patient_identity_conflict"
+            })
+        except InvalidDICOMInstanceError as e:
+            db.session.rollback()
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except OSError:
+                pass
+            errors.append({
+                "file": filename,
+                "error": str(e),
+                "type": "invalid_dicom_instance"
+            })
+        except Exception as e:
+            db.session.rollback()
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except OSError:
+                pass
+            errors.append({
+                "file": filename,
+                "error": str(e),
+                "type": "upload_processing_error"
             })
 
     db.session.commit()
@@ -135,7 +261,10 @@ def upload_folder():
     log_activity(
         'upload_folder', 
         resource=f'patient_{patient_id}',
-        details=f'Uploaded {len(created_files)} files to ward {ward_id}'
+        details=(
+            f'Uploaded {len(created_files)} files to ward {ward_id}. '
+            f'Errors: {len(errors)}. Source DICOM PatientID: {source_dicom_patient_id or "unknown"}'
+        )
     )
 
     return jsonify({

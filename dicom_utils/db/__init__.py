@@ -1,4 +1,5 @@
 from .upserts import (
+    PatientIdentityConflictError,
     upsert_patient,
     upsert_study,
     upsert_series,
@@ -6,6 +7,7 @@ from .upserts import (
 )
 
 __all__ = [
+    "PatientIdentityConflictError",
     "upsert_patient",
     "upsert_study",
     "upsert_series",

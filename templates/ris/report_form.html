@@ -2,6 +2,59 @@
 
 {% block title %}{% if report %}Edit{% else %}New{% endif %} Radiology Report - MCH PACS{% endblock %}
 
+{% block head %}
+<style>
+    .ris-appendix-card {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #e0e0e0;
+    }
+    .ris-appendix-note {
+        margin: 0 0 12px;
+        color: #4b5563;
+        font-size: 13px;
+    }
+    .ris-screenshot-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .ris-shot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 12px;
+    }
+    .ris-shot-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 8px;
+        background: #fafafa;
+    }
+    .ris-shot-card img {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid #e5e7eb;
+        margin-bottom: 8px;
+        background: #fff;
+    }
+    .ris-shot-card figcaption {
+        font-size: 11px;
+        color: #4b5563;
+        margin-bottom: 6px;
+        word-break: break-all;
+    }
+    .ris-shot-empty {
+        color: #6b7280;
+        font-size: 13px;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
 {% block body %}
 <main class="ris-report-page">
     {% include 'ris/_subnav.html' %}
@@ -78,10 +131,49 @@
                 <div class="ris-form-actions">
                     <button type="submit" class="btn btn-primary">Save Report</button>
                     <button type="button" onclick="saveDraft()" class="btn btn-secondary">Save as Draft</button>
-                    <button type="button" onclick="shareReport()" class="btn btn-share">Share</button>
+                    <button type="button" onclick="shareReport()" class="btn btn-share" {% if not report %}disabled title="Save report first to share as PDF"{% endif %}>Share PDF</button>
                     <a href="{{ url_for('ris_bp.worklist') }}" class="btn btn-tertiary">Cancel</a>
                 </div>
             </form>
+
+            <div class="ris-appendix-card">
+                <h3>Image Appendix (Optional Page 2)</h3>
+                {% if report %}
+                    <p class="ris-appendix-note">
+                        Upload or paste screenshots from OHIF. These images are appended as extra page(s) in the report PDF.
+                    </p>
+                    <form
+                        method="POST"
+                        action="{{ url_for('ris_bp.upload_report_screenshot', report_id=report.id) }}"
+                        enctype="multipart/form-data"
+                        class="ris-screenshot-form"
+                    >
+                        <input type="file" id="screenshot_file" name="screenshot" accept="image/png,image/jpeg,image/webp" required>
+                        <button type="submit" class="btn btn-secondary">Upload Screenshot</button>
+                        <button type="button" class="btn btn-share" onclick="pasteScreenshotFromClipboard({{ report.id }})">Paste Screenshot</button>
+                    </form>
+
+                    {% if screenshot_assets %}
+                        <div class="ris-shot-grid">
+                            {% for shot in screenshot_assets %}
+                            <figure class="ris-shot-card">
+                                <a href="{{ shot.url }}" target="_blank" rel="noopener">
+                                    <img src="{{ shot.url }}" alt="Report screenshot {{ loop.index }}">
+                                </a>
+                                <figcaption>{{ shot.filename }}</figcaption>
+                                <form method="POST" action="{{ url_for('ris_bp.delete_report_screenshot', report_id=report.id, filename=shot.filename) }}">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this screenshot?')">Remove</button>
+                                </form>
+                            </figure>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="ris-shot-empty">No screenshots attached yet.</p>
+                    {% endif %}
+                {% else %}
+                    <p class="ris-shot-empty">Save this report as Draft first, then edit it to attach screenshots.</p>
+                {% endif %}
+            </div>
         </div>
     </div>
 </main>
@@ -125,35 +217,87 @@ function saveDraft() {
 
 
 async function shareReport() {
-    const shareText = `Study {{ study.study_instance_uid }} - Open in OHIF`;
-    const shareUrl = `{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=study.study_instance_uid, _external=True) }}`;
+    const reportId = "{{ report.id if report else '' }}";
+    if (!reportId) {
+        alert('Save the report first, then share the PDF from edit/view mode.');
+        return;
+    }
 
-    if (navigator.share) {
-        try {
+    const pdfUrl = `{{ url_for('ris_bp.download_report_pdf', report_id=report.id if report else 0, _external=True) }}`;
+    const reportFileName = `report_${reportId}.pdf`;
+
+    try {
+        const response = await fetch(pdfUrl, { credentials: 'same-origin' });
+        if (!response.ok) throw new Error('Failed to fetch PDF');
+        const blob = await response.blob();
+        const file = new File([blob], reportFileName, { type: 'application/pdf' });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
-                title: 'Radiology Study',
-                text: shareText,
-                url: shareUrl
+                title: `Radiology Report #${reportId}`,
+                text: `Radiology report PDF for study {{ study.study_instance_uid }}`,
+                files: [file]
             });
             return;
-        } catch (err) {
-            // user cancelled or share failed; fall through to clipboard fallback
         }
+    } catch (err) {
+        // Fall through to fallback behavior below
     }
 
-    // Fallback for browsers/devices without native share
-    const fallback = `${shareText}\n${shareUrl}`;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        try {
-            await navigator.clipboard.writeText(fallback);
-            alert('Share not available here. Link copied to clipboard.');
-            return;
-        } catch (e) {}
-    }
-
-    alert('Share not available. Copy this manually:\n' + fallback);
+    // Fallback: download/open PDF and provide email compose with report link.
+    window.open(pdfUrl, '_blank');
+    const subject = encodeURIComponent(`Radiology Report #${reportId}`);
+    const body = encodeURIComponent(`Please find the report PDF here:\n${pdfUrl}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
+async function pasteScreenshotFromClipboard(reportId) {
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+        alert('Clipboard image paste is not supported in this browser.');
+        return;
+    }
+
+    try {
+        const clipboardItems = await navigator.clipboard.read();
+        let imageBlob = null;
+        let imageType = "image/png";
+
+        for (const item of clipboardItems) {
+            const imageMime = item.types.find((type) => type.startsWith('image/'));
+            if (imageMime) {
+                imageType = imageMime;
+                imageBlob = await item.getType(imageMime);
+                break;
+            }
+        }
+
+        if (!imageBlob) {
+            alert('No image found in your clipboard. Use OHIF screenshot first, then try Paste Screenshot.');
+            return;
+        }
+
+        const extension = (imageType.split('/')[1] || 'png').replace('jpeg', 'jpg');
+        const imageFile = new File([imageBlob], `clipboard_${Date.now()}.${extension}`, { type: imageType });
+        const formData = new FormData();
+        formData.append('screenshot', imageFile);
+
+        const uploadUrl = `{{ url_for('ris_bp.upload_report_screenshot', report_id=report.id if report else 0) }}`;
+        const response = await fetch(uploadUrl, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        if (!response.ok) {
+            throw new Error('Upload failed');
+        }
+
+        window.location.reload();
+    } catch (error) {
+        alert('Unable to paste/upload screenshot. You can still use Upload Screenshot.');
+    }
+}
 
 </script>
 {% endblock %}

@@ -96,6 +96,30 @@
     .status-draft { background: #fff9c4; color: #f57f17; }
     .status-final { background: #e8f5e9; color: #2e7d32; }
     .status-signed { background: #e3f2fd; color: #1976d2; }
+    .report-shot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+    }
+    .report-shot-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 8px;
+        background: #fafafa;
+    }
+    .report-shot-card img {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid #e5e7eb;
+    }
+    .report-shot-card figcaption {
+        margin-top: 6px;
+        font-size: 12px;
+        color: #4b5563;
+        word-break: break-all;
+    }
 
     @media print {
         .topbar,
@@ -133,6 +157,7 @@
                 <a href="{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=report.study.study_instance_uid) }}" target="_blank" class="btn btn-secondary">View Images</a>
                 {% if ris_has_pdf_endpoint %}
                 <a href="{{ url_for('ris_bp.download_report_pdf', report_id=report.id) }}" class="btn btn-secondary">Download PDF</a>
+                <button type="button" onclick="shareReportPdf()" class="btn btn-secondary">Share PDF</button>
                 {% endif %}
                 {% if report.status == 'draft' %}
                 <a href="{{ url_for('ris_bp.edit_report', report_id=report.id) }}" class="btn btn-primary">Edit Report</a>
@@ -203,6 +228,22 @@
         </div>
         {% endif %}
 
+        {% if screenshot_assets %}
+        <div class="report-section">
+            <h3>Image Appendix</h3>
+            <div class="report-shot-grid">
+                {% for shot in screenshot_assets %}
+                <figure class="report-shot-card">
+                    <a href="{{ shot.url }}" target="_blank" rel="noopener">
+                        <img src="{{ shot.url }}" alt="Report screenshot {{ loop.index }}">
+                    </a>
+                    <figcaption>{{ shot.filename }}</figcaption>
+                </figure>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="report-footer">
             <div class="info-grid">
                 <div class="info-item">
@@ -233,4 +274,35 @@
         </div>
     </div>
 </main>
+
+<script>
+async function shareReportPdf() {
+    const reportId = "{{ report.id }}";
+    const pdfUrl = `{{ url_for('ris_bp.download_report_pdf', report_id=report.id, _external=True) }}`;
+    const reportFileName = `report_${reportId}.pdf`;
+
+    try {
+        const response = await fetch(pdfUrl, { credentials: 'same-origin' });
+        if (!response.ok) throw new Error('Failed to fetch PDF');
+        const blob = await response.blob();
+        const file = new File([blob], reportFileName, { type: 'application/pdf' });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                title: `Radiology Report #${reportId}`,
+                text: `Radiology report PDF for study {{ report.study.study_instance_uid }}`,
+                files: [file]
+            });
+            return;
+        }
+    } catch (err) {
+        // Fall through to fallback behavior below
+    }
+
+    window.open(pdfUrl, '_blank');
+    const subject = encodeURIComponent(`Radiology Report #${reportId}`);
+    const body = encodeURIComponent(`Please find the report PDF here:\n${pdfUrl}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+}
+</script>
 {% endblock %}

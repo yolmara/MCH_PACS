@@ -219,6 +219,32 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             ${studyLink}
         `;
 
+        if (aggregate.errors.length > 0) {
+            const reasonMap = new Map();
+            for (const err of aggregate.errors) {
+                const reason = (err && err.error) ? String(err.error) : 'Unknown error';
+                reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
+            }
+            const topReasons = Array.from(reasonMap.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3);
+
+            const reasonHtml = topReasons.map(([reason, count]) =>
+                `- ${count} file(s): ${reason}`
+            ).join('<br>');
+
+            const sampleFiles = aggregate.errors
+                .slice(0, 5)
+                .map((err) => err.file || '(no filename)')
+                .join(', ');
+
+            progressText.innerHTML += `
+                <strong>Error Summary</strong><br>
+                ${reasonHtml || '- No reason available'}<br><br>
+                <strong>Sample Files:</strong> ${sampleFiles}
+            `;
+        }
+
         setTimeout(() => {
             form.reset();
             statusDiv.style.display = 'none';
