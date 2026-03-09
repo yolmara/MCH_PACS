@@ -30,7 +30,7 @@
     <section class="action-section">
         <h2>Quick Actions</h2>
         <div class="action-grid">
-        {% if session.get('role') in ['technician', 'admin'] %}
+        {% if session.get('role') in ['technician', 'admin', 'radiologist'] %}
         <a href="{{ url_for('upload_bp.upload_folder_page') }}" class="action-card">
             <span>📂 Upload Folder</span>
             <small>Import new DICOM folder studies</small>
@@ -42,10 +42,13 @@
             <small>Open OHIF viewer for study review</small>
         </a>
 
+
+        {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
         <a href="{{ url_for('home_bp.stats_dashboard') }}" class="action-card">
             <span>📊 Scan Statistics</span>
             <small>View trends by modality, ward, and report status</small>
         </a>
+        {% endif %}
 
         {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
         <a href="{{ url_for('wards_bp.worklist_page') }}" class="action-card">
@@ -54,14 +57,12 @@
         </a>
         {% endif %}
 
-        {% if session.get('role') in ['radiologist', 'admin'] %}
         <a href="{{ url_for('ris_bp.worklist') }}" class="action-card">
             <span>☢️ RIS Module</span>
             <small>Orders, reports and interpretation</small>
         </a>
-        {% endif %}
 
-        {% if session.get('role') in ['clerk', 'admin'] %}
+        {% if session.get('role') in ['clerk', 'admin', 'radiologist'] %}
         <a href="{{ url_for('patients_bp.patients_list') }}" class="action-card">
             <span>📋 Patient List</span>
             <small>Search, review and maintain records</small>
