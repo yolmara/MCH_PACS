@@ -1,3 +1,7 @@
+const protocol = window.location.protocol || 'http:';
+const hostname = window.location.hostname || 'localhost';
+const dicomWebRoot = `${protocol}//${hostname}:8081/dicomweb`;
+
 window.config = {
   routerBasename: '/',
   showStudyList: true,
@@ -10,9 +14,9 @@ window.config = {
       configuration: {
         friendlyName: 'MCH PACS',
         name: 'dicomweb',
-        wadoUriRoot: 'http://localhost:8081/dicomweb',
-        qidoRoot: 'http://localhost:8081/dicomweb',
-        wadoRoot: 'http://localhost:8081/dicomweb',
+        wadoUriRoot: dicomWebRoot,
+        qidoRoot: dicomWebRoot,
+        wadoRoot: dicomWebRoot,
         qidoSupportsIncludeField: false,
         imageRendering: 'wadors',
         thumbnailRendering: 'wadors',

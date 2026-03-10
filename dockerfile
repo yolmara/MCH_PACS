@@ -23,4 +23,4 @@ COPY app.py .
 COPY config.py .
 
 EXPOSE 5000
-CMD ["flask", "run", "--host=0.0.0.0"]
+CMD ["gunicorn", "--workers", "4", "--bind", "0.0.0.0:5000", "--timeout", "180", "app:app"]

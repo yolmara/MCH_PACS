@@ -4,9 +4,9 @@ services:
     container_name: pacs-docker-db
     restart: always
     environment:
-      POSTGRES_USER: coder911
-      POSTGRES_PASSWORD: coder.03
-      POSTGRES_DB: pacsdb
+      POSTGRES_USER: ${POSTGRES_USER:-pacs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+      POSTGRES_DB: ${POSTGRES_DB:-pacsdb}
     ports:
       - "5433:5432"
     volumes:
@@ -14,7 +14,7 @@ services:
     networks:
       - pacs-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U coder911 -d pacsdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pacs} -d ${POSTGRES_DB:-pacsdb}"]
       interval: 2s
       timeout: 5s
       retries: 10
@@ -23,7 +23,11 @@ services:
     build:
       context: .
       dockerfile: dockerfile
-    command: python app.py
+    command: >-
+      gunicorn --workers ${GUNICORN_WORKERS:-4}
+      --bind 0.0.0.0:5000
+      --timeout ${GUNICORN_TIMEOUT:-180}
+      app:app
     container_name: flask-app
     restart: always
     ulimits:
@@ -31,11 +35,13 @@ services:
         soft: 65535
         hard: 65535
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     environment:
-      - FLASK_ENV=development
-      - DATABASE_URL=postgresql+psycopg2://coder911:coder.03@db:5432/pacsdb
-      - ORTHANC_NOTIFY_TOKEN=99fd1ce50f974220de9f13ee05887b9a576e9a586bbcbbd9
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-change-me-flask-secret}
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-pacs}:${POSTGRES_PASSWORD:-change-me-db-password}@db:5432/${POSTGRES_DB:-pacsdb}
+      - ORTHANC_NOTIFY_TOKEN=${ORTHANC_NOTIFY_TOKEN:-change-me-orthanc-notify-token}
+      - OHIF_VIEWER_URL=${OHIF_VIEWER_URL:-http://localhost:8080}
     volumes:
       - ./migrations:/app/migrations
       - ./app.py:/app/app.py
@@ -59,10 +65,13 @@ services:
     restart: always
     ports:
       - "4242:4242"   # DICOM C-STORE (Siemens pushes here)
-      - "8042:8042"   # Orthanc REST API
+      - "127.0.0.1:8042:8042"   # Orthanc REST API (host-local)
     environment:
-      ORTHANC_NOTIFY_URL: "http://flask-app:5000/dicom/notify"
-      ORTHANC_NOTIFY_TOKEN: "99fd1ce50f974220de9f13ee05887b9a576e9a586bbcbbd9"
+      ORTHANC_NOTIFY_URL: "${ORTHANC_NOTIFY_URL:-http://flask-app:5000/dicom/notify}"
+      ORTHANC_NOTIFY_TOKEN: "${ORTHANC_NOTIFY_TOKEN:-change-me-orthanc-notify-token}"
+      ORTHANC__AUTHENTICATIONENABLED: "true"
+      ORTHANC__REGISTEREDUSERS: '{"admin":"${ORTHANC_ADMIN_PASSWORD:-change-me-orthanc-admin-password}"}'
+      ORTHANC__DICOMAET: "${ORTHANC_AET:-MCH_PACS}"
     volumes:
       - orthanc-storage:/var/lib/orthanc/db
       - ./docker/orthanc/orthanc.json:/etc/orthanc/orthanc.json:ro

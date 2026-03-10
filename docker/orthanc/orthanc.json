@@ -5,7 +5,7 @@
   "HttpPort": 8042,
   "AuthenticationEnabled": true,
   "RegisteredUsers": {
-    "admin": "admin"
+    "admin": "change-me-orthanc-admin-password"
   },
   "StorageDirectory": "/var/lib/orthanc/db",
   "Plugins": [],
