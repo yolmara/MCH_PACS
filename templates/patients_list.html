@@ -43,6 +43,7 @@
                     <td>{{ patient.studies|length }}</td>
                     <td class="patients-actions">
                         <a href="{{ url_for('patients_bp.patient_detail', patient_id=patient.id) }}">View</a>
+                        <a href="{{ url_for('patients_bp.edit_patient', patient_id=patient.id) }}">Edit ID</a>
                         {% if session.get('role') == 'admin' %}
                         <form method="POST" action="{{ url_for('patients_bp.delete_patient', patient_id=patient.id) }}" onsubmit="return confirm('Delete this patient and all related studies/instances?');" class="patients-delete-form">
                             <button type="submit" class="patients-delete-btn">

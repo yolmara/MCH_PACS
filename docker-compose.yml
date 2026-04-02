@@ -42,6 +42,9 @@ services:
       - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-pacs}:${POSTGRES_PASSWORD:-change-me-db-password}@db:5432/${POSTGRES_DB:-pacsdb}
       - ORTHANC_NOTIFY_TOKEN=${ORTHANC_NOTIFY_TOKEN:-change-me-orthanc-notify-token}
       - OHIF_VIEWER_URL=${OHIF_VIEWER_URL:-http://localhost:8080}
+      - BOOTSTRAP_ADMIN_USERNAME=${BOOTSTRAP_ADMIN_USERNAME}
+      - BOOTSTRAP_ADMIN_PASSWORD=${BOOTSTRAP_ADMIN_PASSWORD}
+      - BOOTSTRAP_ADMIN_RESET=${BOOTSTRAP_ADMIN_RESET:-0}
     volumes:
       - ./migrations:/app/migrations
       - ./app.py:/app/app.py

@@ -56,15 +56,15 @@ def ohif_viewer():
     Frontend calls like:
     /viewer?StudyInstanceUID=1.2.840...
     """
-    study_uid = request.args.get("StudyInstanceUID")
+    study_uid = request.args.get("StudyInstanceUID") or request.args.get("StudyInstanceUIDs")
     ohif_base_url = current_app.config.get("OHIF_VIEWER_URL", "http://localhost:8080").rstrip("/")
 
     # Dashboard access (no study selected yet): open OHIF landing page.
     if not study_uid:
         return redirect(f"{ohif_base_url}/")
 
-    # Study-specific launch
-    return redirect(f"{ohif_base_url}/?StudyInstanceUIDs={study_uid}")
+    # Study-specific launch (OHIF uses /viewer route)
+    return redirect(f"{ohif_base_url}/viewer?StudyInstanceUIDs={study_uid}")
 
 
 ######### Studies Route ##########

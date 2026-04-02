@@ -18,6 +18,7 @@
             {% if session.get('user_id') %}
             <a href="{{ url_for('ris_bp.create_order', patient_id=patient.id) }}" class="btn btn-primary">Create RIS Order</a>
             {% endif %}
+            <a href="{{ url_for('patients_bp.edit_patient', patient_id=patient.id) }}" class="btn btn-secondary">Edit Patient ID</a>
             <a href="{{ url_for('patients_bp.patients_list') }}">Back to Patients</a>
         </div>
     </div>

@@ -154,7 +154,7 @@
             </div>
 
             <div class="report-actions">
-                <a href="{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=report.study.study_instance_uid) }}" target="_blank" class="btn btn-secondary">View Images</a>
+                <a href="{{ ohif_base_url }}/viewer?StudyInstanceUIDs={{ report.study.study_instance_uid|urlencode }}" target="_blank" class="btn btn-secondary">View Images</a>
                 {% if ris_has_pdf_endpoint %}
                 <a href="{{ url_for('ris_bp.download_report_pdf', report_id=report.id) }}" class="btn btn-secondary">Download PDF</a>
                 <button type="button" onclick="shareReportPdf()" class="btn btn-secondary">Share PDF</button>

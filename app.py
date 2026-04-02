@@ -1,10 +1,12 @@
 from flask import Flask, render_template, jsonify
 from config import Config
-from models import db
+from models import db, User
 from flask_migrate import Migrate
+import os
 import time
 from sqlalchemy.exc import OperationalError
 from werkzeug.exceptions import RequestEntityTooLarge
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 # ----------------------------------------------------
@@ -13,6 +15,9 @@ from werkzeug.exceptions import RequestEntityTooLarge
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Respect reverse proxy headers (host/port/scheme) for correct URL generation.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1, x_port=1)
     
     app.config['SESSION_TYPE'] = 'filesystem'
     # Allow large multipart folder uploads by raising parser safeguards.
@@ -22,6 +27,40 @@ def create_app():
 
     # Initialize database + migrations
     db.init_app(app)
+
+    def ensure_bootstrap_admin():
+        username = (os.environ.get("BOOTSTRAP_ADMIN_USERNAME") or "").strip()
+        password = (os.environ.get("BOOTSTRAP_ADMIN_PASSWORD") or "").strip()
+        if not username or not password:
+            return
+
+        reset = (os.environ.get("BOOTSTRAP_ADMIN_RESET") or "").strip().lower() in {"1", "true", "yes", "y"}
+        full_name = (os.environ.get("BOOTSTRAP_ADMIN_FULL_NAME") or "").strip() or username
+        email = (os.environ.get("BOOTSTRAP_ADMIN_EMAIL") or "").strip() or None
+
+        user = User.query.filter_by(username=username).first()
+        if user is None:
+            user = User(
+                username=username,
+                role="admin",
+                full_name=full_name,
+                email=email,
+                is_active=True,
+            )
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            print(f"✅ Bootstrapped admin user '{username}'")
+        elif reset:
+            user.set_password(password)
+            user.role = "admin"
+            user.is_active = True
+            if full_name:
+                user.full_name = full_name
+            if email is not None:
+                user.email = email
+            db.session.commit()
+            print(f"✅ Reset admin user '{username}'")
     
     # Retry database connection
     with app.app_context():
@@ -29,6 +68,7 @@ def create_app():
         for attempt in range(retries):
             try:
                 db.create_all()
+                ensure_bootstrap_admin()
                 print("✅ Database connected successfully")
                 break
             except OperationalError as e:
@@ -56,8 +96,9 @@ def create_app():
             "max_form_memory_size": app.config.get("MAX_FORM_MEMORY_SIZE"),
         }), 413
 
-    # Register Jinja filters
+    # Register Jinja filters/context
     register_filters(app)
+    register_context_processors(app)
 
     # Register Blueprints
     register_blueprints(app)
@@ -119,6 +160,16 @@ def register_filters(app):
         if value is None:
             return ""
         return unescape(re.sub(r"<[^>]+>", "", str(value)))
+
+
+# ----------------------------------------------------
+#  JINJA CONTEXT
+# ----------------------------------------------------
+def register_context_processors(app):
+    @app.context_processor
+    def inject_ohif_base_url():
+        ohif_base_url = app.config.get("OHIF_VIEWER_URL", "http://localhost:8080").rstrip("/")
+        return {"ohif_base_url": ohif_base_url}
 
 
 # ----------------------------------------------------

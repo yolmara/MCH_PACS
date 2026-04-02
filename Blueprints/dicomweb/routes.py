@@ -2,6 +2,7 @@
 import os
 import pydicom
 from flask import Blueprint, request, jsonify, current_app, make_response
+from sqlalchemy import or_
 from models import db, Patient, Study, Series, Instance
 
 dicomweb_bp = Blueprint("dicomweb_bp", __name__, url_prefix='/dicomweb')
@@ -43,6 +44,32 @@ def study_to_qido_json(study):
         obj.update(dicom_element("00080061", modalities, "CS"))
     
     return obj
+
+
+def _like_filter(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    text = text.replace("*", "%")
+    if "%" not in text:
+        text = f"%{text}%"
+    return text
+
+
+def _parse_date_range(value):
+    if value is None:
+        return None, None
+    text = str(value).strip()
+    if not text:
+        return None, None
+    if "-" in text:
+        start, end = text.split("-", 1)
+        start = start.strip() or None
+        end = end.strip() or None
+        return start, end
+    return text, text
 
 # Map a Series model -> DICOMweb JSON object
 def series_to_qido_json(series):
@@ -97,13 +124,58 @@ def _instance_metadata_json(instance):
 @dicomweb_bp.route("/studies", methods=["GET"])
 def qido_studies():
     # Simple filters: PatientID=..., limit, offset
-    patient_id_filter = request.args.get("PatientID")
+    def _get_arg(*keys):
+        for key in keys:
+            if key in request.args:
+                return request.args.get(key)
+        return None
+
+    patient_id_filter = _get_arg("PatientID", "patientID", "patientId", "00100020")
+    patient_name_filter = _get_arg("PatientName", "patientName", "patientname", "00100010")
+    study_uid_filter = _get_arg("StudyInstanceUID", "studyInstanceUID", "studyInstanceUid", "0020000D")
+    study_date_filter = _get_arg("StudyDate", "studyDate", "00080020")
+    study_desc_filter = _get_arg("StudyDescription", "studyDescription", "00081030")
     limit = int(request.args.get("limit", 50))
     offset = int(request.args.get("offset", 0))
 
     query = Study.query
+    if any([patient_id_filter, patient_name_filter]):
+        query = query.join(Patient)
+
     if patient_id_filter:
-        query = query.join(Patient).filter(Patient.patient_id == patient_id_filter)
+        pid_like = _like_filter(patient_id_filter)
+        if pid_like:
+            query = query.filter(Patient.patient_id.ilike(pid_like))
+
+    if patient_name_filter:
+        raw_name = str(patient_name_filter)
+        name_like = _like_filter(raw_name)
+        alt_space = _like_filter(raw_name.replace("^", " "))
+        alt_caret = _like_filter(raw_name.replace(" ", "^"))
+
+        patterns = [p for p in {name_like, alt_space, alt_caret} if p]
+        if patterns:
+            query = query.filter(or_(*[Patient.patient_name.ilike(p) for p in patterns]))
+
+    if study_uid_filter:
+        uid_like = _like_filter(study_uid_filter)
+        if uid_like:
+            query = query.filter(Study.study_instance_uid.ilike(uid_like))
+
+    if study_desc_filter:
+        desc_like = _like_filter(study_desc_filter)
+        if desc_like:
+            query = query.filter(Study.description.ilike(desc_like))
+
+    if study_date_filter:
+        start_date, end_date = _parse_date_range(study_date_filter)
+        if start_date and end_date and start_date == end_date:
+            query = query.filter(Study.study_date == start_date)
+        else:
+            if start_date:
+                query = query.filter(Study.study_date >= start_date)
+            if end_date:
+                query = query.filter(Study.study_date <= end_date)
 
     query = query.order_by(Study.study_date.desc().nullslast()).limit(limit).offset(offset)
     studies = query.all()

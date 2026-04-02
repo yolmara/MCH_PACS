@@ -520,6 +520,33 @@ def create_report(study_id):
     from models import Study, RadiologyReport
     
     study = Study.query.get_or_404(study_id)
+
+    if request.method == "POST":
+        report_id = request.form.get("report_id")
+        if report_id:
+            report = RadiologyReport.query.get_or_404(report_id)
+            if report.study_id_fk != study.id:
+                return render_template("error.html", message="Report does not match study."), 400
+            if not _is_report_accessible(report):
+                return render_template("error.html", message="Access denied. Insufficient permissions."), 403
+
+            report.radiologist_name = request.form.get("radiologist_name") or report.radiologist_name
+            report.findings = request.form.get("findings")
+            report.impression = request.form.get("impression")
+            report.recommendations = request.form.get("recommendations")
+            report.status = request.form.get("status", "draft")
+
+            if report.status == "final" and not report.finalized_at:
+                report.finalized_at = datetime.utcnow()
+
+            db.session.commit()
+            log_activity(
+                "report_updated",
+                resource=f"report_{report.id}",
+                details=f"Updated report status to {report.status}",
+            )
+            flash("Report updated successfully!", "success")
+            return redirect(url_for("ris_bp.view_report", report_id=report.id))
     
     if request.method == "POST":
         try:
@@ -551,10 +578,57 @@ def create_report(study_id):
             db.session.rollback()
             current_app.logger.exception("Failed to save report for study %s", study_id)
             flash("Failed to save report. Please try again.", "error")
-            return render_template("ris/report_form.html", study=study, report=None, screenshot_assets=[]), 500
+            return render_template(
+                "ris/report_form.html",
+                study=study,
+                report=None,
+                screenshot_assets=[],
+                is_new_report=True,
+            ), 500
     
-    # GET - show form
-    return render_template("ris/report_form.html", study=study, screenshot_assets=[])
+    # GET - show form (create draft immediately so screenshots can be attached)
+    existing_report = (
+        RadiologyReport.query.filter_by(study_id_fk=study.id)
+        .order_by(RadiologyReport.created_at.desc())
+        .first()
+    )
+    if existing_report:
+        if not _is_report_accessible(existing_report):
+            return render_template("error.html", message="Access denied. Insufficient permissions."), 403
+        if existing_report.status == "draft":
+            report = existing_report
+            return render_template(
+                "ris/report_form.html",
+                study=study,
+                report=report,
+                screenshot_assets=_report_screenshot_assets(report.id),
+                is_new_report=True,
+            )
+        return redirect(url_for("ris_bp.view_report", report_id=existing_report.id))
+
+    report = RadiologyReport(
+        study_id_fk=study.id,
+        radiologist_id=session.get("user_id"),
+        radiologist_name=session.get("full_name"),
+        findings="",
+        impression="",
+        recommendations="",
+        status="draft",
+    )
+    db.session.add(report)
+    db.session.commit()
+    log_activity(
+        "report_draft_started",
+        resource=f"study_{study.study_instance_uid}",
+        details=f"Draft report {report.id} started",
+    )
+    return render_template(
+        "ris/report_form.html",
+        study=study,
+        report=report,
+        screenshot_assets=_report_screenshot_assets(report.id),
+        is_new_report=True,
+    )
 
 
 @ris_bp.route("/reports/<int:report_id>", methods=["GET"])
@@ -649,6 +723,9 @@ def upload_report_screenshot(report_id):
         return jsonify({"ok": True, "filename": target_name}), 200
 
     flash("Screenshot attached to report.", "success")
+    next_url = request.args.get("next")
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
     return redirect(url_for("ris_bp.edit_report", report_id=report.id))
 
 
@@ -677,6 +754,9 @@ def delete_report_screenshot(report_id, filename):
         details=f"Removed screenshot {safe_name}",
     )
     flash("Screenshot removed.", "info")
+    next_url = request.args.get("next")
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
     return redirect(url_for("ris_bp.edit_report", report_id=report.id))
 
 

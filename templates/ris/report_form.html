@@ -69,15 +69,26 @@
                 <div><strong>Description:</strong> {{ study.description or 'N/A' }}</div>
             </div>
             <div class="ris-viewer-link">
-                <a href="{{ url_for('dicom_bp.ohif_viewer', StudyInstanceUID=study.study_instance_uid) }}" target="_blank" class="btn btn-primary">
+                <a href="{{ ohif_base_url }}/viewer?StudyInstanceUIDs={{ study.study_instance_uid|urlencode }}" target="_blank" class="btn btn-primary">
                     Open Images in OHIF Viewer
                 </a>
             </div>
         </div>
 
         <div class="ris-report-form">
-            <h2>{% if report %}Edit{% else %}New{% endif %} Radiology Report</h2>
+            <h2>
+                {% if is_new_report %}
+                    New Radiology Report
+                {% elif report %}
+                    Edit Radiology Report
+                {% else %}
+                    New Radiology Report
+                {% endif %}
+            </h2>
             <form method="POST" id="reportForm">
+                {% if report %}
+                <input type="hidden" name="report_id" value="{{ report.id }}">
+                {% endif %}
                 <div class="form-group">
                     <label for="radiologist_name">Radiologist Name: *</label>
                     <input
@@ -144,7 +155,7 @@
                     </p>
                     <form
                         method="POST"
-                        action="{{ url_for('ris_bp.upload_report_screenshot', report_id=report.id) }}"
+                        action="{{ url_for('ris_bp.upload_report_screenshot', report_id=report.id, next=request.path) }}"
                         enctype="multipart/form-data"
                         class="ris-screenshot-form"
                     >
@@ -161,7 +172,7 @@
                                     <img src="{{ shot.url }}" alt="Report screenshot {{ loop.index }}">
                                 </a>
                                 <figcaption>{{ shot.filename }}</figcaption>
-                                <form method="POST" action="{{ url_for('ris_bp.delete_report_screenshot', report_id=report.id, filename=shot.filename) }}">
+                                <form method="POST" action="{{ url_for('ris_bp.delete_report_screenshot', report_id=report.id, filename=shot.filename, next=request.path) }}">
                                     <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this screenshot?')">Remove</button>
                                 </form>
                             </figure>
@@ -281,7 +292,7 @@ async function pasteScreenshotFromClipboard(reportId) {
         const formData = new FormData();
         formData.append('screenshot', imageFile);
 
-        const uploadUrl = `{{ url_for('ris_bp.upload_report_screenshot', report_id=report.id if report else 0) }}`;
+        const uploadUrl = `{{ url_for('ris_bp.upload_report_screenshot', report_id=report.id if report else 0, next=request.path) }}`;
         const response = await fetch(uploadUrl, {
             method: 'POST',
             body: formData,

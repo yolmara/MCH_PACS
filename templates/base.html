@@ -29,7 +29,7 @@
             <a href="{{ url_for('wards_bp.worklist_page') }}" class="{{ 'active' if current_path.startswith('/wards/worklist') else '' }}">Ward Worklist</a>
         {% endif %}
 
-        {% if session.get('role') in ['clerk', 'admin'] %}
+        {% if session.get('user_id') %}
             <a href="{{ url_for('patients_bp.patients_list') }}" class="{{ 'active' if current_path.startswith('/patients') else '' }}">Patients</a>
         {% endif %}
 
