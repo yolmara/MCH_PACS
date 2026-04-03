@@ -356,6 +356,10 @@ body {
   cursor: pointer;
 }
 
+.patients-refresh-btn {
+  background: #6b7280;
+}
+
 .patients-table-wrap {
   overflow-x: auto;
 }
@@ -394,6 +398,39 @@ body {
   border: 0;
   border-radius: 6px;
   background: #c62828;
+  color: #fff;
+  cursor: pointer;
+}
+
+.patients-view-btn {
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: rgb(87, 185, 255);
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: small;
+}
+
+.patients-edit-btn {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(0, 172, 129, 0.902);
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: small;
+}
+
+.back-to-patients-btn {
+  font-size: small;
+  padding: 3px 6px;
+  text-decoration: none;
+  background:rgb(209, 101, 0);
+  border: 0;
+  border-radius: 9px;
   color: #fff;
   cursor: pointer;
 }
@@ -1056,6 +1093,12 @@ body {
     color: #1e3a8a;
     margin-bottom: 8px;
     font-size: 14px;
+}
+
+.filter-group input {
+  padding: 10px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
 }
 
 .filter-group select {

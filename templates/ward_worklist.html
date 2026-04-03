@@ -28,6 +28,15 @@
             </div>
 
             <div class="filter-group">
+                <label for="studySearch">🔎 Search</label>
+                <input
+                    type="text"
+                    id="studySearch"
+                    placeholder="Patient ID, name, study UID..."
+                >
+            </div>
+
+            <div class="filter-group">
                 <label>&nbsp;</label>
                 <button class="btn btn-primary" onclick="loadStudies()" style="width: 100%;">
                     🔄 Refresh
@@ -93,6 +102,15 @@
 // Load departments on page load
 window.onload = () => {
     loadDepartments();
+    const searchInput = document.getElementById('studySearch');
+    if (searchInput) {
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                loadStudies();
+            }
+        });
+    }
 };
 
 async function loadDepartments() {
@@ -142,26 +160,36 @@ async function loadWards() {
 
 async function loadStudies() {
     const wardId = document.getElementById('wardFilter').value;
+    const searchQuery = (document.getElementById('studySearch').value || '').trim();
     if (!wardId) {
         alert('Please select a ward');
         return;
     }
 
     try {
-        const res = await fetch(`/wards/${wardId}/studies`);
+        const params = new URLSearchParams();
+        if (searchQuery) {
+            params.set('q', searchQuery);
+        }
+        const url = params.toString()
+            ? `/wards/${wardId}/studies?${params.toString()}`
+            : `/wards/${wardId}/studies`;
+        const res = await fetch(url);
         const data = await res.json();
         
         const statsSection = document.getElementById('statsSection');
         const statsText = document.getElementById('statsText');
         statsSection.style.display = 'block';
-        statsText.textContent = `${data.ward} - ${data.studies.length} studies found`;
+        statsText.textContent = searchQuery
+            ? `${data.ward} - ${data.studies.length} matching studies for "${searchQuery}"`
+            : `${data.ward} - ${data.studies.length} studies found`;
 
         const tbody = document.getElementById('studiesBody');
         if (data.studies.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="6" class="empty-state">
-                        <p>No studies found for this ward</p>
+                        <p>${searchQuery ? 'No matching studies found.' : 'No studies found for this ward'}</p>
                     </td>
                 </tr>
             `;

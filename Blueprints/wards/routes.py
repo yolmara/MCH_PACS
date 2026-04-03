@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, render_template
 from Blueprints.auth.routes import login_required
 from dicom_utils.activity_logger import log_activity
 from models import db, Ward, Department, Patient, Study
+from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 
 wards_bp = Blueprint('wards_bp', __name__, url_prefix='/wards')
@@ -163,9 +164,21 @@ def ward_patients(ward_id):
 @wards_bp.route('/<int:ward_id>/studies', methods=['GET'])
 def ward_studies(ward_id):
     ward = Ward.query.get_or_404(ward_id)
-    
-    studies = Study.query.join(Patient).filter(Patient.ward_id == ward_id)\
-        .order_by(Study.study_date.desc()).all()
+    q = (request.args.get("q") or "").strip()
+
+    query = Study.query.join(Patient).filter(Patient.ward_id == ward_id)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            or_(
+                Patient.patient_id.ilike(like),
+                Patient.patient_name.ilike(like),
+                Study.study_instance_uid.ilike(like),
+                Study.description.ilike(like),
+            )
+        )
+
+    studies = query.order_by(Study.study_date.desc()).all()
     
     return jsonify({
         'ward': ward.ward_name,
