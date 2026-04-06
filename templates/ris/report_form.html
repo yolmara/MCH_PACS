@@ -132,15 +132,15 @@
                 <div class="form-group">
                     <label for="status">Report Status: *</label>
                     <select id="status" name="status" required>
-                        <option value="draft" {% if not report or report.status == 'draft' %}selected{% endif %}>Draft</option>
-                        <option value="final" {% if report and report.status == 'final' %}selected{% endif %}>Final</option>
+                        <option value="draft" {% if report and report.status == 'draft' %}selected{% endif %}>Draft</option>
+                        <option value="final" {% if (not report) or (report and report.status == 'final') %}selected{% endif %}>Final</option>
                         <option value="signed" {% if report and report.status == 'signed' %}selected{% endif %}>Signed</option>
                     </select>
-                    <small>Final and signed reports should only be used after review.</small>
+                    <small>Use Draft for in-progress work. Final/Signed show in Saved Reports.</small>
                 </div>
 
                 <div class="ris-form-actions">
-                    <button type="submit" class="btn btn-primary">Save Report</button>
+                    <button type="button" onclick="saveFinal()" class="btn btn-primary">Save Report</button>
                     <button type="button" onclick="saveDraft()" class="btn btn-secondary">Save as Draft</button>
                     <button type="button" onclick="shareReport()" class="btn btn-share" {% if not report %}disabled title="Save report first to share as PDF"{% endif %}>Share PDF</button>
                     <a href="{{ url_for('ris_bp.worklist') }}" class="btn btn-tertiary">Cancel</a>
@@ -223,6 +223,14 @@ function loadTemplate(templateName) {
 
 function saveDraft() {
     document.getElementById('status').value = 'draft';
+    document.getElementById('reportForm').submit();
+}
+
+function saveFinal() {
+    const statusField = document.getElementById('status');
+    if (statusField && statusField.value === 'draft') {
+        statusField.value = 'final';
+    }
     document.getElementById('reportForm').submit();
 }
 

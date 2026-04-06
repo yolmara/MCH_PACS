@@ -18,3 +18,9 @@ class Config:
 
     # External OHIF entrypoint used for dashboard/viewer redirects
     OHIF_VIEWER_URL = os.environ.get("OHIF_VIEWER_URL", "http://localhost:8080").rstrip("/")
+
+    # Orthanc ingestion settings
+    ORTHANC_API_URL = os.environ.get("ORTHANC_API_URL", "http://orthanc:8042").rstrip("/")
+    ORTHANC_ADMIN_USERNAME = os.environ.get("ORTHANC_ADMIN_USERNAME", "admin")
+    ORTHANC_ADMIN_PASSWORD = os.environ.get("ORTHANC_ADMIN_PASSWORD", "")
+    ORTHANC_INGEST_ENABLED = os.environ.get("ORTHANC_INGEST_ENABLED", "1").strip().lower() in {"1", "true", "yes", "y"}

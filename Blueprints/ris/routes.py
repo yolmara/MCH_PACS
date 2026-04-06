@@ -5,6 +5,7 @@ from models import db, ExamOrder, Patient, Ward, User, Series, Appointment, Radi
 from datetime import datetime
 from sqlalchemy import or_
 from io import BytesIO
+import shutil
 from html import unescape
 import re
 import textwrap
@@ -758,6 +759,41 @@ def delete_report_screenshot(report_id, filename):
     if next_url and next_url.startswith("/"):
         return redirect(next_url)
     return redirect(url_for("ris_bp.edit_report", report_id=report.id))
+
+
+@ris_bp.route("/reports/<int:report_id>/delete", methods=["POST"])
+@login_required
+def delete_report(report_id):
+    """Delete a radiology report and its screenshots."""
+    if session.get("role") != "admin":
+        return render_template("error.html", message="Access denied. Admins only."), 403
+    report = RadiologyReport.query.get_or_404(report_id)
+    if not _is_report_accessible(report):
+        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
+
+    report_ref = report.id
+    study_uid = report.study.study_instance_uid if report.study else "unknown"
+
+    try:
+        screenshot_dir = _report_screenshot_dir(report.id)
+        if os.path.isdir(screenshot_dir):
+            shutil.rmtree(screenshot_dir)
+
+        db.session.delete(report)
+        db.session.commit()
+
+        log_activity(
+            "report_deleted",
+            resource=f"report_{report_ref}",
+            details=f"Deleted report for study {study_uid}",
+        )
+        flash("Report deleted successfully.", "success")
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.exception("Failed to delete report %s", report_ref)
+        flash(f"Failed to delete report: {exc}", "error")
+
+    return redirect(url_for("ris_bp.list_saved_reports"))
 
 
 @ris_bp.route("/reports/<int:report_id>/pdf", methods=["GET"])

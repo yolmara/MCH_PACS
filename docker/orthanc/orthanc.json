@@ -8,6 +8,9 @@
     "admin": "change-me-orthanc-admin-password"
   },
   "StorageDirectory": "/var/lib/orthanc/db",
+  "MaximumStorageSize": 102400,
+  "MaximumPatientCount": 0,
+  "MaximumStorageMode": "Recycle",
   "Plugins": [],
   "LuaScripts": ["/etc/orthanc/notify.lua"],
 

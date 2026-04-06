@@ -2,8 +2,21 @@ from flask import Blueprint, render_template, request, redirect, jsonify, url_fo
 from datetime import datetime
 import json
 import os
+from io import BytesIO
+import httpx
+import pydicom
 from models import Study, Series, Instance, db
 from dicom_utils.activity_logger import log_activity
+from dicom_utils import (
+    extract_metadata,
+    dicom_to_jpeg,
+    ensure_patient_folder,
+    upsert_patient,
+    upsert_study,
+    upsert_series,
+    upsert_instance,
+    PatientIdentityConflictError,
+)
 
 dicom_bp = Blueprint("dicom_bp", __name__)
 
@@ -44,7 +57,144 @@ def orthanc_notify():
         resource=f"orthanc_instance_{instance_id}",
         details=f"Received Orthanc callback from {request.remote_addr}",
     )
-    return jsonify({"status": "accepted", "instance_id": instance_id}), 202
+
+    ingest_result = _ingest_orthanc_instance(instance_id)
+    return jsonify({"status": "accepted", "instance_id": instance_id, "ingest": ingest_result}), 202
+
+
+def _resolve_instance_file_path(path):
+    if not path:
+        return None
+    return path if os.path.isabs(path) else os.path.join(current_app.root_path, path)
+
+
+def _orthanc_client():
+    base_url = current_app.config.get("ORTHANC_API_URL", "http://orthanc:8042").rstrip("/")
+    username = (current_app.config.get("ORTHANC_ADMIN_USERNAME") or "").strip()
+    password = (current_app.config.get("ORTHANC_ADMIN_PASSWORD") or "").strip()
+    auth = (username, password) if username and password else None
+    return httpx.Client(base_url=base_url, auth=auth, timeout=30.0)
+
+
+def _ingest_orthanc_instance(instance_id):
+    if not current_app.config.get("ORTHANC_INGEST_ENABLED", True):
+        return {"status": "skipped", "reason": "ingest_disabled"}
+
+    try:
+        with _orthanc_client() as client:
+            resp = client.get(f"/instances/{instance_id}/file")
+            resp.raise_for_status()
+            content = resp.content
+    except Exception as exc:
+        current_app.logger.exception("Failed to fetch Orthanc instance %s", instance_id)
+        return {"status": "error", "error": str(exc)}
+
+    if not content:
+        return {"status": "error", "error": "empty_instance_file"}
+
+    try:
+        ds = pydicom.dcmread(BytesIO(content), force=True)
+    except Exception as exc:
+        current_app.logger.exception("Failed to parse DICOM for Orthanc instance %s", instance_id)
+        return {"status": "error", "error": f"parse_failed: {exc}"}
+
+    meta = extract_metadata(ds)
+    missing = [key for key in ("StudyInstanceUID", "SeriesInstanceUID", "SOPInstanceUID") if not meta.get(key)]
+    if missing:
+        return {"status": "error", "error": f"missing_uids: {', '.join(missing)}"}
+
+    existing = Instance.query.filter_by(sop_instance_uid=meta["SOPInstanceUID"]).first()
+    if existing:
+        existing_path = _resolve_instance_file_path(existing.file_path)
+        if existing_path and os.path.exists(existing_path):
+            return {"status": "skipped", "reason": "already_ingested"}
+
+    patient_id = str(getattr(ds, "PatientID", "") or "").strip()
+    if not patient_id:
+        seed = meta.get("StudyInstanceUID") or instance_id
+        patient_id = f"UNKNOWN_{seed[:12]}"
+
+    patient_name = str(meta.get("PatientName")) if meta.get("PatientName") else None
+    patient_sex = str(meta.get("PatientSex")) if meta.get("PatientSex") else None
+    patient_dob = str(meta.get("PatientBirthDate")) if meta.get("PatientBirthDate") else None
+
+    patient_dir = ensure_patient_folder(patient_id)
+    filename = f"{meta['SOPInstanceUID']}.dcm"
+    file_path = os.path.join(patient_dir, filename)
+    if not os.path.exists(file_path):
+        try:
+            with open(file_path, "wb") as handle:
+                handle.write(content)
+        except OSError as exc:
+            current_app.logger.exception("Failed to write Orthanc instance to disk")
+            return {"status": "error", "error": f"write_failed: {exc}"}
+
+    try:
+        patient = upsert_patient(
+            patient_id=patient_id,
+            name=patient_name,
+            sex=patient_sex,
+            dob=patient_dob,
+        )
+    except PatientIdentityConflictError as exc:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+        return {"status": "error", "error": f"patient_conflict: {exc}"}
+
+    try:
+        study = upsert_study(
+            patient=patient,
+            study_uid=meta["StudyInstanceUID"],
+            study_date=meta.get("StudyDate"),
+            description=meta.get("StudyDescription"),
+        )
+        series = upsert_series(
+            study=study,
+            series_uid=meta["SeriesInstanceUID"],
+            modality=meta.get("Modality"),
+        )
+
+        preview_path = None
+        try:
+            preview_path = dicom_to_jpeg(
+                dcm=ds,
+                output_dir=os.path.join(patient_dir, "previews"),
+                instance_uid=meta["SOPInstanceUID"],
+            )
+        except Exception:
+            preview_path = None
+
+        instance = upsert_instance(
+            series=series,
+            sop_uid=meta["SOPInstanceUID"],
+            file_path=file_path,
+            preview_path=preview_path,
+        )
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.exception("Failed to persist Orthanc instance %s", instance_id)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+        return {"status": "error", "error": f"db_failed: {exc}"}
+
+    log_activity(
+        "orthanc_ingest",
+        resource=f"instance_{instance.sop_instance_uid}",
+        details=f"Ingested Orthanc instance {instance_id} into PACS storage",
+    )
+
+    return {
+        "status": "ingested",
+        "study_uid": study.study_instance_uid,
+        "series_uid": series.series_instance_uid,
+        "instance_uid": instance.sop_instance_uid,
+    }
 
 
 ########## Viewer Route ##########

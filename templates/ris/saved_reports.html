@@ -59,6 +59,11 @@
                     <td>
                         <a href="{{ url_for('ris_bp.view_report', report_id=report.id) }}" class="btn btn-sm">View</a>
                         <a href="{{ url_for('ris_bp.download_report_pdf', report_id=report.id) }}" class="btn btn-sm btn-secondary">PDF</a>
+                        {% if session.get('role') == 'admin' %}
+                        <form method="POST" action="{{ url_for('ris_bp.delete_report', report_id=report.id) }}" style="display:inline;" onsubmit="return confirm('Delete this report?');">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                        {% endif %}
                     </td>
                 </tr>
                 {% else %}
