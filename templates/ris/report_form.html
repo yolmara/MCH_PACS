@@ -161,7 +161,7 @@
                     >
                         <input type="file" id="screenshot_file" name="screenshot" accept="image/png,image/jpeg,image/webp" required>
                         <button type="submit" class="btn btn-secondary">Upload Screenshot</button>
-                        <button type="button" class="btn btn-share" onclick="pasteScreenshotFromClipboard({{ report.id }})">Paste Screenshot</button>
+                        <button type="button" class="btn btn-secondary" onclick="pasteScreenshotFromClipboard({{ report.id }})">Paste Screenshot</button>
                     </form>
 
                     {% if screenshot_assets %}

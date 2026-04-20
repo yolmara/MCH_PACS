@@ -73,20 +73,20 @@
                     <td>{{ order.order_date.strftime('%Y-%m-%d %H:%M') }}</td>
                     <td>{{ order.ordering_doctor_name }}</td>
                     <td>
-                        <a href="{{ url_for('ris_bp.view_order', order_id=order.id) }}" class="btn btn-sm">View</a>
+                        <a href="{{ url_for('ris_bp.view_order', order_id=order.id) }}" class="btn btn-sm btn-secondary">View</a>
                         {% if order.status in ['pending', 'scheduled'] %}
                         <a href="{{ url_for('ris_bp.schedule_board', order_id=order.id) }}" class="btn btn-sm btn-secondary">Schedule</a>
                         {% endif %}
                         {% if order.status == 'pending' %}
                         <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
                             <input type="hidden" name="status" value="scheduled">
-                            <button type="submit" class="btn btn-sm">Mark Scheduled</button>
+                            <button type="submit" class="btn btn-sm btn-secondary">Mark Scheduled</button>
                         </form>
                         {% endif %}
                         {% if order.status == 'scheduled' %}
                         <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
                             <input type="hidden" name="status" value="in_progress">
-                            <button type="submit" class="btn btn-sm">Start</button>
+                            <button type="submit" class="btn btn-sm btn-primary">Start</button>
                         </form>
                         {% endif %}
                         {% if order.status == 'in_progress' %}

@@ -1047,6 +1047,8 @@ body {
     cursor: pointer;
     font-size: 14px;
     transition: all 0.3s ease;
+    display: inline-block;
+    text-decoration: none;
 }
 
 .btn-primary {
@@ -1669,9 +1671,16 @@ body {
         .btn-secondary {
             background: #757575;
             color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
             text-decoration: none;
+        }
+        .btn-tertiary {
+            background: #e5e7eb;
+            color: #111827;
+            border: 1px solid #cbd5e1;
+            text-decoration: none;
+        }
+        .btn-tertiary:hover {
+            background: #d1d5db;
         }
         .btn-danger {
             background: #dc2626;

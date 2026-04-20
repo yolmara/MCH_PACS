@@ -116,9 +116,14 @@ def _build_report_pdf(report):
     def draw_line(text="", bold=False, size=10, spacer=False):
         nonlocal y
         if spacer:
+            # Avoid ending a page with negative spacing pushes.
+            if y - line_height <= margin:
+                pdf.showPage()
+                y = page_height - margin
             y -= line_height
             return
-        if y <= margin:
+        # Break early so the current line never prints inside the bottom margin.
+        if y - line_height <= margin:
             pdf.showPage()
             y = page_height - margin
         pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
@@ -161,16 +166,19 @@ def _build_report_pdf(report):
 
     screenshots = _report_screenshot_assets(report.id)
     if screenshots:
+        img_margin = 10 * mm
+        header_gap = 6
         for index, screenshot in enumerate(screenshots, start=1):
             pdf.showPage()
-            pdf.setFont("Helvetica-Bold", 14)
-            pdf.drawString(margin, page_height - margin, f"Image Appendix {index}/{len(screenshots)}")
-            pdf.setFont("Helvetica", 10)
-            pdf.drawString(margin, page_height - margin - line_height, screenshot["filename"])
+            title_y = page_height - img_margin
+            pdf.setFont("Helvetica-Bold", 12)
+            pdf.drawString(img_margin, title_y, f"Image Appendix {index}/{len(screenshots)}")
+            pdf.setFont("Helvetica", 9)
+            pdf.drawString(img_margin, title_y - 12, screenshot["filename"])
 
-            image_top = page_height - margin - (line_height * 2) - 8
-            available_width = page_width - (margin * 2)
-            available_height = image_top - margin
+            image_top = title_y - 12 - header_gap
+            available_width = page_width - (img_margin * 2)
+            available_height = image_top - img_margin
             try:
                 image_reader = ImageReader(screenshot["path"])
                 image_width, image_height = image_reader.getSize()
@@ -178,7 +186,7 @@ def _build_report_pdf(report):
                 draw_width = image_width * scale
                 draw_height = image_height * scale
                 draw_x = (page_width - draw_width) / 2
-                draw_y = margin + ((available_height - draw_height) / 2)
+                draw_y = img_margin + ((available_height - draw_height) / 2)
                 pdf.drawImage(
                     image_reader,
                     draw_x,
@@ -398,16 +406,26 @@ def update_order_status(order_id):
 def worklist():
     """View pending studies needing reports"""
     # Get filters
-    ward_id = request.args.get("ward_id")
+    ward_id = request.args.get("ward_id", type=int)
     modality = request.args.get("modality")
     search_query = (request.args.get("q") or "").strip()
+    page = request.args.get("page", 1, type=int)
+    per_page = 25
     
     # Base query - orders that are completed but don't have reports yet
-    from models import Study, RadiologyReport
+    from models import Study, RadiologyReport, Instance
+    from sqlalchemy import func
+    from sqlalchemy.orm import joinedload, selectinload
     
-    query = db.session.query(Study).join(Patient).outerjoin(
-        RadiologyReport, Study.id == RadiologyReport.study_id_fk
-    ).filter(RadiologyReport.id == None)  # No report yet
+    query = (
+        Study.query.options(
+            joinedload(Study.patient).joinedload(Patient.ward),
+            selectinload(Study.series),
+        )
+        .join(Patient)
+        .outerjoin(RadiologyReport, Study.id == RadiologyReport.study_id_fk)
+        .filter(RadiologyReport.id.is_(None))  # No report yet
+    )
     
     if ward_id:
         query = query.filter(Patient.ward_id == ward_id)
@@ -425,12 +443,32 @@ def worklist():
             )
         )
 
-    query = query.distinct()
+    query = query.distinct().order_by(Study.study_date.desc().nullslast(), Study.id.desc())
 
-    studies = query.all()
+    studies = query.paginate(page=page, per_page=per_page, error_out=False)
     wards = Ward.query.all()
+
+    # Avoid N+1 loading instances just to compute per-study counts.
+    instance_counts = {}
+    if studies.items:
+        study_ids = [study.id for study in studies.items]
+        rows = (
+            db.session.query(Study.id, func.count(Instance.id))
+            .join(Series, Series.study_key_fk == Study.id)
+            .join(Instance, Instance.series_id_fk == Series.id)
+            .filter(Study.id.in_(study_ids))
+            .group_by(Study.id)
+            .all()
+        )
+        instance_counts = {study_id: count for study_id, count in rows}
     
-    return render_template("ris/worklist.html", studies=studies, wards=wards)
+    return render_template(
+        "ris/worklist.html",
+        studies=studies,
+        wards=wards,
+        q=search_query,
+        instance_counts=instance_counts,
+    )
 
 # =====================================================
 # REPORTING (for radiologists)
@@ -817,6 +855,32 @@ def download_report_pdf(report_id):
     return send_file(
         pdf_buffer,
         as_attachment=True,
+        download_name=filename,
+        mimetype="application/pdf",
+    )
+
+
+@ris_bp.route("/reports/<int:report_id>/pdf/view", methods=["GET"])
+@login_required
+def view_report_pdf(report_id):
+    """View report PDF inline (useful for printing without browser URL headers/footers)."""
+    report = RadiologyReport.query.get_or_404(report_id)
+    if not _is_report_accessible(report):
+        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
+
+    pdf_buffer = _build_report_pdf(report)
+    patient_id = report.study.patient.patient_id or "patient"
+    filename = f"report_{report.id}_{patient_id}.pdf"
+
+    log_activity(
+        "report_pdf_viewed",
+        resource=f"report_{report.id}",
+        details=f"Viewed PDF for study {report.study.study_instance_uid}",
+    )
+
+    return send_file(
+        pdf_buffer,
+        as_attachment=False,
         download_name=filename,
         mimetype="application/pdf",
     )

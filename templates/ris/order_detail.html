@@ -145,7 +145,7 @@
         {% set linked_report = order.report | first %}
         <div class="order-section">
             <h3>Report</h3>
-            <a href="{{ url_for('ris_bp.view_report', report_id=linked_report.id) }}" class="btn">View Report</a>
+            <a href="{{ url_for('ris_bp.view_report', report_id=linked_report.id) }}" class="btn btn-secondary">View Report</a>
         </div>
         {% endif %}
 
@@ -157,13 +157,13 @@
             {% if order.status == 'pending' %}
             <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
                 <input type="hidden" name="status" value="scheduled">
-                <button type="submit" class="btn">Mark Scheduled</button>
+                <button type="submit" class="btn btn-secondary">Mark Scheduled</button>
             </form>
             {% endif %}
             {% if order.status == 'scheduled' %}
             <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
                 <input type="hidden" name="status" value="in_progress">
-                <button type="submit" class="btn">Start Exam</button>
+                <button type="submit" class="btn btn-primary">Start Exam</button>
             </form>
             {% endif %}
             {% if order.status == 'in_progress' %}

@@ -120,11 +120,11 @@
                         <div class="schedule-row-actions">
                             <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
                                 <input type="hidden" name="status" value="arrived">
-                                <button class="btn btn-sm">Arrive</button>
+                                <button class="btn btn-sm btn-secondary">Arrive</button>
                             </form>
                             <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
                                 <input type="hidden" name="status" value="in_progress">
-                                <button class="btn btn-sm">Start</button>
+                                <button class="btn btn-sm btn-primary">Start</button>
                             </form>
                             <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
                                 <input type="hidden" name="status" value="completed">

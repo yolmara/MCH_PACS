@@ -55,7 +55,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for study in studies %}
+                {% for study in studies.items %}
                 <tr>
                     <td>{{ study.patient.patient_id }}</td>
                     <td>{{ study.patient.patient_name or 'N/A' }}</td>
@@ -66,7 +66,7 @@
                     </td>
                     <td>{{ study.description or 'N/A' }}</td>
                     <td>{{ study.patient.ward.ward_name if study.patient.ward else 'N/A' }}</td>
-                    <td>{{ study.series | map(attribute='instances') | map('length') | sum }}</td>
+                    <td>{{ instance_counts.get(study.id, 0) }}</td>
                     <td>
                         <a href="{{ ohif_base_url }}/viewer?StudyInstanceUIDs={{ study.study_instance_uid|urlencode }}" class="btn-view btn-sm" target="_blank">View Images</a>
                         <a href="{{ url_for('ris_bp.create_report', study_id=study.id) }}" class="btn btn-sm btn-primary">Write Report</a>
@@ -80,5 +80,18 @@
             </tbody>
         </table>
     </div>
+    {% if studies.pages > 1 %}
+    <div class="patients-pagination">
+        {% set ward_id = request.args.get('ward_id') %}
+        {% set modality = request.args.get('modality') %}
+        {% if studies.has_prev %}
+            <a href="{{ url_for('ris_bp.worklist', page=studies.prev_num, q=q, ward_id=ward_id, modality=modality) }}">Prev</a>
+        {% endif %}
+        <span>Page {{ studies.page }} of {{ studies.pages }}</span>
+        {% if studies.has_next %}
+            <a href="{{ url_for('ris_bp.worklist', page=studies.next_num, q=q, ward_id=ward_id, modality=modality) }}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
 </main>
 {% endblock %}

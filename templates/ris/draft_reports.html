@@ -49,7 +49,7 @@
                     <td>{{ report.created_at | cat_time('%Y-%m-%d %H:%M') if report.created_at else 'N/A' }}{% if report.created_at %} CAT{% endif %}</td>
                     <td>
                         <a href="{{ url_for('ris_bp.edit_report', report_id=report.id) }}" class="btn btn-sm btn-primary">Edit</a>
-                        <a href="{{ url_for('ris_bp.view_report', report_id=report.id) }}" class="btn btn-sm">View</a>
+                        <a href="{{ url_for('ris_bp.view_report', report_id=report.id) }}" class="btn btn-sm btn-secondary">View</a>
                     </td>
                 </tr>
                 {% else %}

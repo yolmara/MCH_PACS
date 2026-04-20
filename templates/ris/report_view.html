@@ -120,8 +120,17 @@
         color: #4b5563;
         word-break: break-all;
     }
+    .print-note {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #64748b;
+    }
 
     @media print {
+        @page {
+            margin: 12mm;
+        }
+
         .topbar,
         .back-nav-wrap,
         .ris-subnav,
@@ -137,6 +146,34 @@
             padding: 0;
             box-shadow: none;
             max-width: 100%;
+        }
+
+        .report-section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .report-appendix {
+            break-before: page;
+            page-break-before: always;
+        }
+
+        .report-shot-grid {
+            display: block !important;
+        }
+
+        .report-shot-card {
+            break-before: page;
+            page-break-before: always;
+            border: none;
+            padding: 0;
+            background: transparent;
+        }
+
+        .report-shot-card img {
+            height: auto !important;
+            max-height: 250mm;
+            object-fit: contain !important;
         }
     }
 </style>
@@ -229,7 +266,7 @@
         {% endif %}
 
         {% if screenshot_assets %}
-        <div class="report-section">
+        <div class="report-section report-appendix">
             <h3>Image Appendix</h3>
             <div class="report-shot-grid">
                 {% for shot in screenshot_assets %}
@@ -270,7 +307,14 @@
         </div>
 
         <div class="print-actions">
+            {% if ris_has_pdf_endpoint %}
+            <a href="{{ url_for('ris_bp.view_report_pdf', report_id=report.id) }}" target="_blank" class="btn btn-primary">Print Report (PDF)</a>
+            <div class="print-note">
+                Tip: Printing the PDF avoids browser URL headers/footers. If you print this page, disable “Headers and footers” in the print dialog.
+            </div>
+            {% else %}
             <button onclick="window.print()" class="btn btn-primary">Print Report</button>
+            {% endif %}
         </div>
     </div>
 </main>
