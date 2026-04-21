@@ -105,102 +105,251 @@ def _report_screenshot_assets(report_id):
 
 
 def _build_report_pdf(report):
-    """Generate a printable PDF summary of a report."""
+    """Generate a styled PDF matching the report_view.html design."""
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+        HRFlowable, PageBreak, Image as RLImage
+    )
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
     buffer = BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
     page_width, page_height = A4
     margin = 18 * mm
-    y = page_height - margin
-    line_height = 13
 
-    def draw_line(text="", bold=False, size=10, spacer=False):
-        nonlocal y
-        if spacer:
-            # Avoid ending a page with negative spacing pushes.
-            if y - line_height <= margin:
-                pdf.showPage()
-                y = page_height - margin
-            y -= line_height
-            return
-        # Break early so the current line never prints inside the bottom margin.
-        if y - line_height <= margin:
-            pdf.showPage()
-            y = page_height - margin
-        pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
-        pdf.drawString(margin, y, text)
-        y -= line_height
+    # ── Palette (exact match to report_view.html CSS) ────────────────────────
+    BLUE        = colors.HexColor("#1976d2")   # primary — header border, section h3, left-border
+    BLUE_LIGHT  = colors.HexColor("#e3f2fd")   # signed badge bg / header strip bg
+    GREY_BG     = colors.HexColor("#f5f5f5")   # info-item background
+    FAFAFA      = colors.HexColor("#fafafa")   # report-content background
+    TEXT_DARK   = colors.HexColor("#333333")
+    TEXT_MID    = colors.HexColor("#666666")
+    DIVIDER     = colors.HexColor("#e0e0e0")
+    WHITE       = colors.white
 
-    def draw_block(title, value):
-        draw_line(title, bold=True)
-        body = _strip_html(value).strip() or "N/A"
-        for paragraph in body.splitlines() or ["N/A"]:
-            wrapped = textwrap.wrap(paragraph, width=105) or [""]
-            for line in wrapped:
-                draw_line(line)
-        draw_line(spacer=True)
+    # Status-specific colours
+    STATUS_COLORS = {
+        "draft":  (colors.HexColor("#fff9c4"), colors.HexColor("#f57f17")),
+        "final":  (colors.HexColor("#e8f5e9"), colors.HexColor("#2e7d32")),
+        "signed": (colors.HexColor("#e3f2fd"), colors.HexColor("#1976d2")),
+    }
+    status_key = (report.status or "draft").lower()
+    badge_bg, badge_fg = STATUS_COLORS.get(status_key, STATUS_COLORS["draft"])
+
+    # ── Styles ───────────────────────────────────────────────────────────────
+    style_hosp   = ParagraphStyle("Hosp",   fontSize=16, leading=20, textColor=WHITE,
+                                  fontName="Helvetica-Bold", alignment=TA_CENTER)
+    style_dept   = ParagraphStyle("Dept",   fontSize=9,  leading=13, textColor=BLUE_LIGHT,
+                                  fontName="Helvetica",    alignment=TA_CENTER)
+    style_section= ParagraphStyle("Sec",    fontSize=13, leading=16, textColor=BLUE,
+                                  fontName="Helvetica-Bold", spaceBefore=14, spaceAfter=4)
+    style_label  = ParagraphStyle("Lbl",    fontSize=8,  leading=11, textColor=TEXT_MID,
+                                  fontName="Helvetica-Bold")
+    style_value  = ParagraphStyle("Val",    fontSize=10, leading=13, textColor=TEXT_DARK,
+                                  fontName="Helvetica")
+    style_body   = ParagraphStyle("Bdy",    fontSize=10, leading=16, textColor=TEXT_DARK,
+                                  fontName="Helvetica", spaceBefore=2, spaceAfter=2)
+    style_footer = ParagraphStyle("Ftr",    fontSize=7,  leading=10, textColor=TEXT_MID,
+                                  fontName="Helvetica",    alignment=TA_CENTER)
+
+    # ── Per-page header & footer (canvas callbacks) ──────────────────────────
+    def _draw_page(canvas_obj, doc):
+        canvas_obj.saveState()
+        w, h = page_width, page_height
+
+        # --- Navy/blue header banner ---
+        canvas_obj.setFillColor(BLUE)
+        canvas_obj.rect(0, h - 44*mm, w, 44*mm, fill=1, stroke=0)
+
+        # Hospital name
+        canvas_obj.setFont("Helvetica-Bold", 16)
+        canvas_obj.setFillColor(WHITE)
+        canvas_obj.drawCentredString(w/2, h - 14*mm, "Mpilo Central Hospital")
+
+        # Department sub-line
+        canvas_obj.setFont("Helvetica", 9)
+        canvas_obj.setFillColor(BLUE_LIGHT)
+        canvas_obj.drawCentredString(w/2, h - 21*mm,
+                                     "Department of Radiology  ·  MCH PACS System")
+
+        # 3px rule under hospital name (mirrors border-bottom: 3px solid #1976d2 in CSS)
+        canvas_obj.setStrokeColor(colors.HexColor("#90caf9"))
+        canvas_obj.setLineWidth(1)
+        canvas_obj.line(margin, h - 23*mm, w - margin, h - 23*mm)
+
+        # Info strip (darker band — Report ID / Patient / Study Date / Radiologist)
+        canvas_obj.setFillColor(colors.HexColor("#1565c0"))
+        canvas_obj.rect(0, h - 44*mm, w, 18*mm, fill=1, stroke=0)
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.setFillColor(colors.HexColor("#bbdefb"))
+        canvas_obj.drawString(
+            margin, h - 39*mm,
+            f"Report ID: {report.id}   |   "
+            f"Patient: {report.study.patient.patient_id}   |   "
+            f"Study Date: {report.study.study_date or 'N/A'}   |   "
+            f"Radiologist: {report.radiologist_name or 'N/A'}"
+        )
+
+        # Status badge (top-right, mirrors .status-* CSS)
+        bw, bh = 46, 13
+        bx = w - margin - bw
+        by = h - 18*mm
+        canvas_obj.setFillColor(badge_bg)
+        canvas_obj.roundRect(bx, by, bw, bh, 4, fill=1, stroke=0)
+        canvas_obj.setFont("Helvetica-Bold", 7.5)
+        canvas_obj.setFillColor(badge_fg)
+        canvas_obj.drawCentredString(bx + bw/2, by + 3.5,
+                                     (report.status or "UNKNOWN").upper())
+
+        # Footer rule + page number
+        canvas_obj.setStrokeColor(DIVIDER)
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.line(margin, 14*mm, w - margin, 14*mm)
+        canvas_obj.setFont("Helvetica", 7)
+        canvas_obj.setFillColor(TEXT_MID)
+        canvas_obj.drawCentredString(w/2, 9*mm,
+                                     f"MCH PACS  ·  Confidential Medical Record  ·  Page {doc.page}")
+        canvas_obj.restoreState()
+
+    # ── Document setup ───────────────────────────────────────────────────────
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=margin, rightMargin=margin,
+        topMargin=48*mm,       # clears the header banner
+        bottomMargin=22*mm,
+    )
 
     patient = report.study.patient
-    draw_line("MCH PACS - Radiology Report", bold=True, size=14)
-    draw_line(spacer=True)
-    draw_line(f"Report ID: {report.id}")
-    draw_line(f"Status: {(report.status or 'unknown').upper()}")
-    draw_line(f"Radiologist: {report.radiologist_name or 'N/A'}")
-    draw_line(f"Created (CAT): {_format_cat_time(report.created_at)}")
-    draw_line(f"Finalized (CAT): {_format_cat_time(report.finalized_at)}")
-    draw_line(f"Signed (CAT): {_format_cat_time(report.signed_at)}")
-    draw_line(spacer=True)
-    draw_line("Patient Details", bold=True)
-    draw_line(f"Patient ID: {patient.patient_id}")
-    draw_line(f"Patient Name: {patient.patient_name or 'N/A'}")
-    draw_line(f"Sex: {patient.patient_sex or 'N/A'}")
-    draw_line(f"DOB: {patient.patient_dob or 'N/A'}")
-    draw_line(spacer=True)
-    draw_line("Study Details", bold=True)
-    draw_line(f"Study UID: {report.study.study_instance_uid}")
-    draw_line(f"Study Date: {report.study.study_date or 'N/A'}")
-    draw_line(f"Description: {report.study.description or 'N/A'}")
-    draw_line(spacer=True)
-    draw_block("Findings", report.findings)
-    draw_block("Impression", report.impression)
-    draw_block("Recommendations", report.recommendations)
+    content_width = page_width - margin * 2
+    story = []
 
+    # ── Helper: section heading (h3 in CSS = color #1976d2, font-size 18px) ──
+    def section_title(text):
+        story.append(Paragraph(text, style_section))
+        # 3px solid #1976d2 border-bottom equivalent
+        story.append(HRFlowable(width="100%", thickness=1.5,
+                                color=BLUE, spaceAfter=6))
+
+    # ── Helper: info-grid table (.info-item background #f5f5f5) ──────────────
+    def info_table(rows):
+        col_w = content_width / 2
+        # Build 2-up grid (2 items per row, matching auto-fit minmax(200px))
+        tdata = []
+        for i in range(0, len(rows), 2):
+            pair = rows[i:i+2]
+            cell = lambda r: Table(
+                [[Paragraph(r[0], style_label)],
+                 [Paragraph(r[1], style_value)]],
+                colWidths=[col_w - 6],
+                style=TableStyle([
+                    ("BACKGROUND", (0,0), (-1,-1), GREY_BG),
+                    ("TOPPADDING",    (0,0),(-1,-1), 6),
+                    ("BOTTOMPADDING", (0,0),(-1,-1), 6),
+                    ("LEFTPADDING",   (0,0),(-1,-1), 8),
+                    ("RIGHTPADDING",  (0,0),(-1,-1), 8),
+                    ("ROUNDEDCORNERS", [4]),
+                ])
+            )
+            row = [cell(pair[0])]
+            if len(pair) == 2:
+                row.append(cell(pair[1]))
+            else:
+                row.append("")  # empty cell if odd count
+            tdata.append(row)
+
+        outer = Table(tdata, colWidths=[col_w, col_w],
+                      spaceBefore=0, spaceAfter=8)
+        outer.setStyle(TableStyle([
+            ("VALIGN",       (0,0),(-1,-1), "TOP"),
+            ("LEFTPADDING",  (0,0),(-1,-1), 0),
+            ("RIGHTPADDING", (0,0),(-1,-1), 0),
+            ("TOPPADDING",   (0,0),(-1,-1), 4),
+            ("BOTTOMPADDING",(0,0),(-1,-1), 4),
+        ]))
+        story.append(outer)
+        story.append(Spacer(1, 8))
+
+    # ── Helper: report-content block (left border #1976d2, bg #fafafa) ───────
+    def body_block(title, text):
+        section_title(title)
+        clean = _strip_html(text).strip() or "N/A"
+        # Left-border effect via single-column table
+        lines = clean.splitlines() or ["N/A"]
+        paras = [Paragraph(ln or "&nbsp;", style_body) for ln in lines]
+        t = Table([[p] for p in paras],
+                  colWidths=[content_width - 8],
+                  spaceBefore=0, spaceAfter=0)
+        t.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0),(-1,-1), FAFAFA),
+            ("LEFTPADDING",   (0,0),(-1,-1), 16),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 12),
+            ("TOPPADDING",    (0,0),(-1,-1), 10),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 10),
+            # 4px left border (border-left: 4px solid #1976d2)
+            ("LINEBEFORETABLE",(0,0),(0,-1), 4, BLUE),
+            ("LINEBEFORE",    (0,0),(0,-1), 4, BLUE),
+            ("BOX",           (0,0),(-1,-1), 0.25, DIVIDER),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 12))
+
+    # ── Body ─────────────────────────────────────────────────────────────────
+    section_title("Patient Information")
+    info_table([
+        ("Patient ID",    str(patient.patient_id)),
+        ("Patient Name",  patient.patient_name or "N/A"),
+        ("Sex",           patient.patient_sex  or "N/A"),
+        ("Date of Birth", str(patient.patient_dob) if patient.patient_dob else "N/A"),
+        ("Ward",          patient.ward.ward_name if patient.ward else "N/A"),
+    ])
+
+    section_title("Study Information")
+    info_table([
+        ("Study Date",   str(report.study.study_date) if report.study.study_date else "N/A"),
+        ("Description",  report.study.description or "N/A"),
+        ("Study UID",    report.study.study_instance_uid or "N/A"),
+    ])
+
+    body_block("Findings",    report.findings)
+    body_block("Impression",  report.impression)
+    if report.recommendations:
+        body_block("Recommendations", report.recommendations)
+
+    # Report metadata footer section (mirrors .report-footer border-top: 2px solid #e0e0e0)
+    story.append(HRFlowable(width="100%", thickness=2, color=DIVIDER, spaceBefore=16, spaceAfter=8))
+    section_title("Report Metadata")
+    info_table([
+        ("Radiologist",     report.radiologist_name or "N/A"),
+        ("Created (CAT)",   _format_cat_time(report.created_at)),
+        ("Finalized (CAT)", _format_cat_time(report.finalized_at)),
+        ("Signed (CAT)",    _format_cat_time(report.signed_at)),
+    ])
+
+    # ── Image Appendix (break-before: page — mirrors @media print CSS) ───────
     screenshots = _report_screenshot_assets(report.id)
     if screenshots:
-        img_margin = 10 * mm
-        header_gap = 6
-        for index, screenshot in enumerate(screenshots, start=1):
-            pdf.showPage()
-            title_y = page_height - img_margin
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(img_margin, title_y, f"Image Appendix {index}/{len(screenshots)}")
-            pdf.setFont("Helvetica", 9)
-            pdf.drawString(img_margin, title_y - 12, screenshot["filename"])
-
-            image_top = title_y - 12 - header_gap
-            available_width = page_width - (img_margin * 2)
-            available_height = image_top - img_margin
+        for index, shot in enumerate(screenshots, start=1):
+            story.append(PageBreak())
+            story.append(Paragraph(
+                f"Image Appendix  {index} / {len(screenshots)}", style_section))
+            story.append(HRFlowable(width="100%", thickness=1.5,
+                                    color=BLUE, spaceAfter=6))
+            story.append(Paragraph(shot["filename"], style_body))
+            story.append(Spacer(1, 8))
             try:
-                image_reader = ImageReader(screenshot["path"])
-                image_width, image_height = image_reader.getSize()
-                scale = min(available_width / image_width, available_height / image_height)
-                draw_width = image_width * scale
-                draw_height = image_height * scale
-                draw_x = (page_width - draw_width) / 2
-                draw_y = img_margin + ((available_height - draw_height) / 2)
-                pdf.drawImage(
-                    image_reader,
-                    draw_x,
-                    draw_y,
-                    width=draw_width,
-                    height=draw_height,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
+                ir = ImageReader(shot["path"])
+                iw, ih = ir.getSize()
+                avail_w = content_width
+                avail_h = page_height - 48*mm - 22*mm - 20
+                scale = min(avail_w / iw, avail_h / ih, 1.0)
+                story.append(RLImage(shot["path"],
+                                     width=iw * scale,
+                                     height=ih * scale))
             except Exception:
-                pdf.setFont("Helvetica", 10)
-                pdf.drawString(margin, image_top - line_height, "Unable to render this screenshot.")
+                story.append(Paragraph("Unable to render this screenshot.", style_body))
 
-    pdf.save()
+    doc.build(story, onFirstPage=_draw_page, onLaterPages=_draw_page)
     buffer.seek(0)
     return buffer
 
