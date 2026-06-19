@@ -1,9 +1,7 @@
-const protocol = window.location.protocol || 'http:';
-const hostname = window.location.hostname || 'localhost';
-const dicomWebRoot = `${protocol}//${hostname}:8081/dicomweb`;
+const dicomWebRoot = `${window.location.origin}/dicomweb`;
 
 window.config = {
-  routerBasename: '/',
+  routerBasename: '/ohif',
   showStudyList: true,
   extensions: [],
   modes: [],

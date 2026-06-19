@@ -4,6 +4,7 @@ import pydicom
 from flask import Blueprint, request, jsonify, current_app, make_response
 from sqlalchemy import or_
 from models import db, Patient, Study, Series, Instance
+from Blueprints.auth.routes import login_required
 
 dicomweb_bp = Blueprint("dicomweb_bp", __name__, url_prefix='/dicomweb')
 
@@ -122,6 +123,7 @@ def _instance_metadata_json(instance):
 
 # --- QIDO: list studies ---
 @dicomweb_bp.route("/studies", methods=["GET"])
+@login_required
 def qido_studies():
     # Simple filters: PatientID=..., limit, offset
     def _get_arg(*keys):
@@ -187,6 +189,7 @@ def qido_studies():
 
 # --- QIDO: list series for a study ---
 @dicomweb_bp.route("/studies/<study_uid>/series", methods=["GET"])
+@login_required
 def qido_series_for_study(study_uid):
     limit = int(request.args.get("limit", 200))
     offset = int(request.args.get("offset", 0))
@@ -206,6 +209,7 @@ def qido_series_for_study(study_uid):
 
 # --- QIDO: list instances for a series in a study ---
 @dicomweb_bp.route("/studies/<study_uid>/series/<series_uid>/instances", methods=["GET"])
+@login_required
 def qido_instances_for_series(study_uid, series_uid):
     limit = int(request.args.get("limit", 500))
     offset = int(request.args.get("offset", 0))
@@ -227,6 +231,7 @@ def qido_instances_for_series(study_uid, series_uid):
     return resp
 
 @dicomweb_bp.route("/studies/<study_uid>/metadata", methods=["GET"])
+@login_required
 def get_study_metadata(study_uid):
     """
     Return full DICOM metadata for all instances in a study
@@ -251,6 +256,7 @@ def get_study_metadata(study_uid):
 
 
 @dicomweb_bp.route("/studies/<study_uid>/series/<series_uid>/metadata", methods=["GET"])
+@login_required
 def get_series_metadata(study_uid, series_uid):
     series = Series.query.join(Study).filter(
         Study.study_instance_uid == study_uid,
@@ -274,6 +280,7 @@ def get_series_metadata(study_uid, series_uid):
 
 
 @dicomweb_bp.route("/studies/<study_uid>/series/<series_uid>/instances/<instance_uid>/metadata", methods=["GET"])
+@login_required
 def get_instance_metadata(study_uid, series_uid, instance_uid):
     instance = Instance.query.join(Series).join(Study).filter(
         Study.study_instance_uid == study_uid,

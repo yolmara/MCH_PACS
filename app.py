@@ -168,7 +168,7 @@ def register_filters(app):
 def register_context_processors(app):
     @app.context_processor
     def inject_ohif_base_url():
-        ohif_base_url = app.config.get("OHIF_VIEWER_URL", "http://localhost:8080").rstrip("/")
+        ohif_base_url = app.config.get("OHIF_VIEWER_URL", "http://localhost:8081/ohif").rstrip("/")
         return {"ohif_base_url": ohif_base_url}
 
 

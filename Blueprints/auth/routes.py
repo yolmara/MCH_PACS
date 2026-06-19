@@ -179,3 +179,14 @@ def logout():
     session.clear()
     flash('You have been logged out successfully', 'success')
     return redirect(url_for('auth_bp.login'))
+
+
+@auth_bp.route('/session-check', methods=['GET'])
+def session_check():
+    """
+    Lightweight auth probe for nginx auth_request.
+    Returns 204 when the current browser session is authenticated.
+    """
+    if 'user_id' not in session:
+        return ('', 401)
+    return ('', 204)

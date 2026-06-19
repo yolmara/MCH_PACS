@@ -15,6 +15,7 @@ from dicom_utils import (
     upsert_series,
     upsert_instance
 )
+from Blueprints.auth.routes import login_required
 
 stow_bp = Blueprint("stow_bp", __name__)
 
@@ -85,6 +86,7 @@ def _extract_patient_id(ds, form_patient_id=None):
     return pid
 
 @stow_bp.route("/studies", methods=["POST"])
+@login_required
 def stow_studies():
     """
     STOW-RS: store DICOM instances.

@@ -45,7 +45,7 @@ services:
       - ORTHANC_ADMIN_USERNAME=${ORTHANC_ADMIN_USERNAME:-admin}
       - ORTHANC_ADMIN_PASSWORD=${ORTHANC_ADMIN_PASSWORD:-}
       - ORTHANC_INGEST_ENABLED=${ORTHANC_INGEST_ENABLED:-1}
-      - OHIF_VIEWER_URL=${OHIF_VIEWER_URL:-http://localhost:8080}
+      - OHIF_VIEWER_URL=${OHIF_VIEWER_URL:-http://localhost:8081/ohif}
       - BOOTSTRAP_ADMIN_USERNAME=${BOOTSTRAP_ADMIN_USERNAME}
       - BOOTSTRAP_ADMIN_PASSWORD=${BOOTSTRAP_ADMIN_PASSWORD}
       - BOOTSTRAP_ADMIN_RESET=${BOOTSTRAP_ADMIN_RESET:-0}
@@ -92,8 +92,8 @@ services:
     image: ohif/app:latest
     container_name: ohif-viewer
     restart: always
-    ports:
-      - "8080:80"
+    expose:
+      - "80"
     volumes:
       - ./docker/ohif/app-config.js:/usr/share/nginx/html/app-config.js
     networks:

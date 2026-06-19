@@ -7,6 +7,7 @@ import httpx
 import pydicom
 from models import Study, Series, Instance, db
 from dicom_utils.activity_logger import log_activity
+from Blueprints.auth.routes import login_required
 from dicom_utils import (
     extract_metadata,
     dicom_to_jpeg,
@@ -200,6 +201,7 @@ def _ingest_orthanc_instance(instance_id):
 ########## Viewer Route ##########
 ##################################
 @dicom_bp.route("/mch-ohif-viewer")
+@login_required
 def ohif_viewer():
     """
     Launches the OHIF viewer with a given StudyInstanceUID.
@@ -207,7 +209,7 @@ def ohif_viewer():
     /viewer?StudyInstanceUID=1.2.840...
     """
     study_uid = request.args.get("StudyInstanceUID") or request.args.get("StudyInstanceUIDs")
-    ohif_base_url = current_app.config.get("OHIF_VIEWER_URL", "http://localhost:8080").rstrip("/")
+    ohif_base_url = current_app.config.get("OHIF_VIEWER_URL", "http://localhost:8081/ohif").rstrip("/")
 
     # Dashboard access (no study selected yet): open OHIF landing page.
     if not study_uid:
@@ -220,6 +222,7 @@ def ohif_viewer():
 ######### Studies Route ##########
 ##################################
 @dicom_bp.route("/dicom/studies/<study_uid>")
+@login_required
 def ohif_study_json(study_uid):
 
     study = Study.query.filter_by(study_instance_uid=study_uid).first()
