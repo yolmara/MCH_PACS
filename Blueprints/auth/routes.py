@@ -4,7 +4,24 @@ from functools import wraps
 from sqlalchemy import desc
 from dicom_utils.activity_logger import log_activity
 
+import re
+
+def validate_password(password):
+    """Returns error message or None if valid."""
+    if len(password) < 8:
+        return 'Password must be at least 8 characters'
+    if not re.search(r'[A-Z]', password):
+        return 'Password must contain at least one uppercase letter'
+    if not re.search(r'[0-9]', password):
+        return 'Password must contain at least one number'
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return 'Password must contain at least one special character'
+    return None
+
 auth_bp = Blueprint('auth_bp', __name__, url_prefix='/auth')
+
+# These roles may access diagnostic images through OHIF and DICOMweb.
+VIEWER_ROLES = ('admin', 'radiologist', 'technician')
 
 # Decorator to require login
 def login_required(f):
@@ -59,6 +76,11 @@ def create_user():
     existing = User.query.filter_by(username=data['username']).first()
     if existing:
         flash('Username already exists', 'error')
+        return redirect(url_for('auth_bp.manage_users'))
+    
+    password_error = validate_password(data['password'])
+    if password_error:
+        flash(password_error, 'error')
         return redirect(url_for('auth_bp.manage_users'))
     
     user = User(
@@ -189,4 +211,19 @@ def session_check():
     """
     if 'user_id' not in session:
         return ('', 401)
+    return ('', 204)
+
+
+@auth_bp.route('/viewer-session-check', methods=['GET'])
+def viewer_session_check():
+    """Role-aware nginx auth_request probe for OHIF and DICOMweb."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return ('', 401)
+
+    user = User.query.get(user_id)
+    if not user or not user.is_active:
+        return ('', 401)
+    if user.role not in VIEWER_ROLES:
+        return ('', 403)
     return ('', 204)

@@ -7,7 +7,7 @@ import httpx
 import pydicom
 from models import Study, Series, Instance, db
 from dicom_utils.activity_logger import log_activity
-from Blueprints.auth.routes import login_required
+from Blueprints.auth.routes import VIEWER_ROLES, login_required, role_required
 from dicom_utils import (
     extract_metadata,
     dicom_to_jpeg,
@@ -202,6 +202,7 @@ def _ingest_orthanc_instance(instance_id):
 ##################################
 @dicom_bp.route("/mch-ohif-viewer")
 @login_required
+@role_required(*VIEWER_ROLES)
 def ohif_viewer():
     """
     Launches the OHIF viewer with a given StudyInstanceUID.
@@ -223,6 +224,7 @@ def ohif_viewer():
 ##################################
 @dicom_bp.route("/dicom/studies/<study_uid>")
 @login_required
+@role_required(*VIEWER_ROLES)
 def ohif_study_json(study_uid):
 
     study = Study.query.filter_by(study_instance_uid=study_uid).first()
@@ -275,9 +277,10 @@ def filesystem_path_to_url(fs_path):
     return None
 
 @dicom_bp.route("/instances/<int:instance_id>/file")
+@login_required
+@role_required(*VIEWER_ROLES)
 def serve_instance_file(instance_id):
     inst = Instance.query.get(instance_id)
     if not inst:
         return "Not found", 404
-    # Optionally check current_user permissions here
     return current_app.send_static_file(os.path.relpath(inst.file_path, current_app.static_folder))

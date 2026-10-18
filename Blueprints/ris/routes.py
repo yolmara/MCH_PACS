@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, session, current_app, send_file
-from Blueprints.auth.routes import login_required
+from Blueprints.auth.routes import login_required, role_required
 from dicom_utils.activity_logger import log_activity
-from models import db, ExamOrder, Patient, Ward, User, Series, Appointment, RadiologyReport
+from models import db, ExamOrder, Patient, Ward, User, Series, Appointment, RadiologyReport, ReportAddendum
 from datetime import datetime
 from sqlalchemy import or_
 from io import BytesIO
@@ -19,9 +19,29 @@ from reportlab.lib.utils import ImageReader
 from werkzeug.utils import secure_filename
 
 
-
-
 ris_bp = Blueprint("ris_bp", __name__)
+
+
+
+RIS_PERMISSIONS = {
+    "list_orders": {"admin", "radiologist", "technician", "clerk"},
+    "create_order": {"admin", "radiologist", "clerk"},
+    "view_order": {"admin", "radiologist", "technician", "clerk"},
+    "cancel_order": {"admin", "radiologist", "clerk"},
+    "update_order_status": {"admin", "radiologist", "technician"},
+    "delete_order": {"admin"},
+    "worklist": {"admin", "radiologist", "technician"},
+    "list_draft_reports": {"admin", "radiologist"},
+    "list_saved_reports": {"admin", "radiologist", "clerk"},
+    "edit_report": {"admin", "radiologist"},
+    "view_report": {"admin", "radiologist", "clerk"},
+    "delete_report": {"admin"},
+    "schedule_board": {"admin", "radiologist", "technician", "clerk"},
+    "create_appointment": {"admin", "radiologist", "clerk"},
+    "update_appointment_status": {"admin", "radiologist", "technician"},
+    "reschedule_appointment": {"admin", "radiologist", "clerk"},
+    "delete_appointment": {"admin"},
+}
 
 
 @ris_bp.context_processor
@@ -31,29 +51,50 @@ def inject_ris_draft_count():
     view_functions = getattr(current_app, "view_functions", {})
     has_saved_reports_endpoint = "ris_bp.list_saved_reports" in view_functions
     has_pdf_endpoint = "ris_bp.download_report_pdf" in view_functions
+    role = session.get("role")
+    permissions = {
+        action: role in allowed_roles
+        for action, allowed_roles in RIS_PERMISSIONS.items()
+    }
     if not user_id:
         return {
             "ris_draft_count": 0,
             "ris_has_saved_reports_endpoint": has_saved_reports_endpoint,
             "ris_has_pdf_endpoint": has_pdf_endpoint,
+            "ris_permissions": permissions,
+        }
+
+    if not permissions["list_draft_reports"]:
+        return {
+            "ris_draft_count": 0,
+            "ris_has_saved_reports_endpoint": has_saved_reports_endpoint,
+            "ris_has_pdf_endpoint": has_pdf_endpoint,
+            "ris_permissions": permissions,
         }
 
     query = RadiologyReport.query.filter(RadiologyReport.status == "draft")
-    if session.get("role") != "admin":
+    if role != "admin":
         query = query.filter(RadiologyReport.radiologist_id == user_id)
 
     return {
         "ris_draft_count": query.count(),
         "ris_has_saved_reports_endpoint": has_saved_reports_endpoint,
         "ris_has_pdf_endpoint": has_pdf_endpoint,
+        "ris_permissions": permissions,
     }
 
 
 def _is_report_accessible(report):
-    """Admins can access all reports; radiologists can access their own."""
-    if session.get("role") == "admin":
-        return True
-    return report.radiologist_id == session.get("user_id")
+    """Roles allowed to read reports can read all reports."""
+    return session.get("role") in RIS_PERMISSIONS["view_report"]
+
+
+def _is_report_editable(report):
+    """Admins can edit all reports; radiologists can edit reports they authored."""
+    role = session.get("role")
+    return role == "admin" or (
+        role == "radiologist" and report.radiologist_id == session.get("user_id")
+    )
 
 
 def _format_cat_time(dt_obj):
@@ -80,6 +121,13 @@ def _is_allowed_screenshot(filename):
 
 def _report_screenshot_dir(report_id):
     return os.path.join(current_app.config["UPLOAD_FOLDER"], "reports", str(report_id), "screenshots")
+
+
+def _role_guard(*allowed_roles):
+    """Return 403 if current user's role is not in allowed_roles, else None."""
+    if session.get("role") not in set(allowed_roles):
+        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
+    return None
 
 
 def _report_screenshot_assets(report_id):
@@ -349,6 +397,22 @@ def _build_report_pdf(report):
             except Exception:
                 story.append(Paragraph("Unable to render this screenshot.", style_body))
 
+
+#     ── Addenda ───────────────────────────────────────────────────────────
+    addenda = list(report.addenda)
+    if addenda:
+        story.append(HRFlowable(width="100%", thickness=2, color=DIVIDER, spaceBefore=16, spaceAfter=8))
+        section_title("Addenda")
+        for idx, addendum in enumerate(addenda, start=1):
+            story.append(Paragraph(
+                f"Addendum {idx}  ·  {addendum.author_name or 'Unknown'}  ·  "
+                f"{_format_cat_time(addendum.created_at)} (CAT)",
+                style_label,
+            ))
+            story.append(Spacer(1, 4))
+            body_block("", addendum.content)
+
+
     doc.build(story, onFirstPage=_draw_page, onLaterPages=_draw_page)
     buffer.seek(0)
     return buffer
@@ -379,6 +443,7 @@ def _set_order_status(order, new_status):
 
 @ris_bp.route("/orders", methods=["GET"])
 @login_required
+@role_required(*RIS_PERMISSIONS["list_orders"])
 def list_orders():
     """View all exam orders"""
     q = (request.args.get("q") or "").strip()
@@ -411,6 +476,7 @@ def list_orders():
 
 @ris_bp.route("/orders/new/<int:patient_id>", methods=["GET", "POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["create_order"])
 def create_order(patient_id):
     """Create new exam order for a patient"""
     patient = Patient.query.get_or_404(patient_id)
@@ -454,6 +520,7 @@ def create_order(patient_id):
 
 @ris_bp.route("/orders/<int:order_id>", methods=["GET"])
 @login_required
+@role_required(*RIS_PERMISSIONS["view_order"])
 def view_order(order_id):
     """View single exam order details"""
     order = ExamOrder.query.get_or_404(order_id)
@@ -467,6 +534,7 @@ def view_order(order_id):
 
 @ris_bp.route("/orders/<int:order_id>/cancel", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["cancel_order"])
 def cancel_order(order_id):
     """Cancel an exam order"""
     order = ExamOrder.query.get_or_404(order_id)
@@ -489,11 +557,9 @@ def cancel_order(order_id):
 
 @ris_bp.route("/orders/<int:order_id>/delete", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["delete_order"])
 def delete_order(order_id):
     """Hard-delete order (admin only, cancelled-only) for controlled cleanup."""
-    if session.get("role") != "admin":
-        return render_template("error.html", message="Access denied. Insufficient permissions."), 403
-
     order = ExamOrder.query.get_or_404(order_id)
     if order.status != "cancelled":
         flash("Only cancelled orders can be deleted", "error")
@@ -520,6 +586,7 @@ def delete_order(order_id):
 
 @ris_bp.route("/orders/<int:order_id>/status", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["update_order_status"])
 def update_order_status(order_id):
     """Update order workflow status with transition validation."""
     order = ExamOrder.query.get_or_404(order_id)
@@ -552,6 +619,7 @@ def update_order_status(order_id):
 
 @ris_bp.route("/worklist", methods=["GET"])
 @login_required
+@role_required(*RIS_PERMISSIONS["worklist"])
 def worklist():
     """View pending studies needing reports"""
     # Get filters
@@ -625,6 +693,7 @@ def worklist():
 
 @ris_bp.route("/reports/drafts", methods=["GET"])
 @login_required
+@role_required(*RIS_PERMISSIONS["list_draft_reports"])
 def list_draft_reports():
     """List draft reports for follow-up/editing."""
     from models import Study, RadiologyReport
@@ -659,6 +728,7 @@ def list_draft_reports():
 
 @ris_bp.route("/reports/saved", methods=["GET"])
 @login_required
+@role_required(*RIS_PERMISSIONS["list_saved_reports"])
 def list_saved_reports():
     """List saved reports (final/signed by default)."""
     from models import Study
@@ -673,10 +743,14 @@ def list_saved_reports():
         .join(Patient, Study.patient_id_fk == Patient.id)
     )
 
-    if session.get("role") != "admin":
+    if session.get("role") == "radiologist":
         query = query.filter(RadiologyReport.radiologist_id == session.get("user_id"))
 
-    if status_filter in {"draft", "final", "signed"}:
+    if session.get("role") == "clerk":
+        # Clerks may access saved reports, but not the radiologist draft queue.
+        query = query.filter(RadiologyReport.status.in_(["final", "signed"]))
+        status_filter = "non_draft"
+    elif status_filter in {"draft", "final", "signed"}:
         query = query.filter(RadiologyReport.status == status_filter)
     elif status_filter != "all":
         query = query.filter(RadiologyReport.status.in_(["final", "signed"]))
@@ -703,6 +777,7 @@ def list_saved_reports():
 
 @ris_bp.route("/reports/new/<int:study_id>", methods=["GET", "POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["edit_report"])
 def create_report(study_id):
     """Create new radiology report for a study"""
     from models import Study, RadiologyReport
@@ -715,7 +790,7 @@ def create_report(study_id):
             report = RadiologyReport.query.get_or_404(report_id)
             if report.study_id_fk != study.id:
                 return render_template("error.html", message="Report does not match study."), 400
-            if not _is_report_accessible(report):
+            if not _is_report_editable(report):
                 return render_template("error.html", message="Access denied. Insufficient permissions."), 403
 
             report.radiologist_name = request.form.get("radiologist_name") or report.radiologist_name
@@ -781,7 +856,7 @@ def create_report(study_id):
         .first()
     )
     if existing_report:
-        if not _is_report_accessible(existing_report):
+        if not _is_report_editable(existing_report):
             return render_template("error.html", message="Access denied. Insufficient permissions."), 403
         if existing_report.status == "draft":
             report = existing_report
@@ -821,6 +896,7 @@ def create_report(study_id):
 
 @ris_bp.route("/reports/<int:report_id>", methods=["GET"])
 @login_required
+@role_required(*RIS_PERMISSIONS["view_report"])
 def view_report(report_id):
     """View a radiology report"""
     from models import RadiologyReport
@@ -842,12 +918,13 @@ def view_report(report_id):
 
 @ris_bp.route("/reports/<int:report_id>/edit", methods=["GET", "POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["edit_report"])
 def edit_report(report_id):
     """Edit an existing report"""
     from models import RadiologyReport
     
     report = RadiologyReport.query.get_or_404(report_id)
-    if not _is_report_accessible(report):
+    if not _is_report_editable(report):
         return render_template("error.html", message="Access denied. Insufficient permissions."), 403
     
     if request.method == "POST":
@@ -876,12 +953,58 @@ def edit_report(report_id):
     )
 
 
+@ris_bp.route("/reports/<int:report_id>/addendum", methods=["POST"])
+@login_required
+def add_addendum(report_id):
+    """
+    Append an addendum to a finalized or signed report.
+    The original report content is never modified.
+    Only radiologists and admins can add addenda.
+    """
+    from models import RadiologyReport, ReportAddendum
+
+    denied = _role_guard("admin", "radiologist")
+    if denied:
+        return denied
+
+    report = RadiologyReport.query.get_or_404(report_id)
+
+    # Addenda only make sense on finalized or signed reports
+    if report.status == "draft":
+        flash("Cannot add an addendum to a draft report. Finalize the report first.", "error")
+        return redirect(url_for("ris_bp.view_report", report_id=report.id))
+
+    content = (request.form.get("addendum_content") or "").strip()
+    if not content:
+        flash("Addendum content cannot be empty.", "error")
+        return redirect(url_for("ris_bp.view_report", report_id=report.id))
+
+    addendum = ReportAddendum(
+        report_id=report.id,
+        author_id=session.get("user_id"),
+        author_name=session.get("full_name") or session.get("username"),
+        content=content,
+    )
+    db.session.add(addendum)
+    db.session.commit()
+
+    log_activity(
+        "report_addendum_added",
+        resource=f"report_{report.id}",
+        details=f"Addendum #{addendum.id} added to report for study {report.study.study_instance_uid}",
+    )
+
+    flash("Addendum added successfully.", "success")
+    return redirect(url_for("ris_bp.view_report", report_id=report.id))
+
+
 @ris_bp.route("/reports/<int:report_id>/screenshots", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["edit_report"])
 def upload_report_screenshot(report_id):
     """Attach screenshot evidence to a report."""
     report = RadiologyReport.query.get_or_404(report_id)
-    if not _is_report_accessible(report):
+    if not _is_report_editable(report):
         return render_template("error.html", message="Access denied. Insufficient permissions."), 403
 
     screenshot = request.files.get("screenshot")
@@ -919,10 +1042,11 @@ def upload_report_screenshot(report_id):
 
 @ris_bp.route("/reports/<int:report_id>/screenshots/<path:filename>/delete", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["edit_report"])
 def delete_report_screenshot(report_id, filename):
     """Remove screenshot evidence from a report."""
     report = RadiologyReport.query.get_or_404(report_id)
-    if not _is_report_accessible(report):
+    if not _is_report_editable(report):
         return render_template("error.html", message="Access denied. Insufficient permissions."), 403
 
     safe_name = secure_filename(filename)
@@ -950,10 +1074,9 @@ def delete_report_screenshot(report_id, filename):
 
 @ris_bp.route("/reports/<int:report_id>/delete", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["delete_report"])
 def delete_report(report_id):
     """Delete a radiology report and its screenshots."""
-    if session.get("role") != "admin":
-        return render_template("error.html", message="Access denied. Admins only."), 403
     report = RadiologyReport.query.get_or_404(report_id)
     if not _is_report_accessible(report):
         return render_template("error.html", message="Access denied. Insufficient permissions."), 403
@@ -985,6 +1108,7 @@ def delete_report(report_id):
 
 @ris_bp.route("/reports/<int:report_id>/pdf", methods=["GET"])
 @login_required
+@role_required(*RIS_PERMISSIONS["view_report"])
 def download_report_pdf(report_id):
     """Download report content as PDF."""
     report = RadiologyReport.query.get_or_404(report_id)
@@ -1011,6 +1135,7 @@ def download_report_pdf(report_id):
 
 @ris_bp.route("/reports/<int:report_id>/pdf/view", methods=["GET"])
 @login_required
+@role_required(*RIS_PERMISSIONS["view_report"])
 def view_report_pdf(report_id):
     """View report PDF inline (useful for printing without browser URL headers/footers)."""
     report = RadiologyReport.query.get_or_404(report_id)
@@ -1058,6 +1183,7 @@ def _has_overlap(resource_name, start_dt, end_dt, exclude_id=None):
 
 @ris_bp.route("/schedule", methods=["GET"])
 @login_required
+@role_required(*RIS_PERMISSIONS["schedule_board"])
 def schedule_board():
     date_str = request.args.get("date")
     modality = request.args.get("modality")
@@ -1103,6 +1229,7 @@ def schedule_board():
 
 @ris_bp.route("/schedule", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["create_appointment"])
 def create_appointment():
     patient_id_fk = int(request.form["patient_id_fk"])
     modality = request.form["modality"].strip()
@@ -1152,6 +1279,7 @@ def create_appointment():
 
 @ris_bp.route("/schedule/<int:appointment_id>/status", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["update_appointment_status"])
 def update_appointment_status(appointment_id):
     appt = Appointment.query.get_or_404(appointment_id)
     new_status = request.form.get("status", "").strip()
@@ -1197,6 +1325,7 @@ def update_appointment_status(appointment_id):
 
 @ris_bp.route("/schedule/<int:appointment_id>/reschedule", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["reschedule_appointment"])
 def reschedule_appointment(appointment_id):
     appt = Appointment.query.get_or_404(appointment_id)
     start_dt = _parse_dt(request.form["scheduled_start"])
@@ -1228,6 +1357,7 @@ def reschedule_appointment(appointment_id):
 
 @ris_bp.route("/schedule/<int:appointment_id>/delete", methods=["POST"])
 @login_required
+@role_required(*RIS_PERMISSIONS["delete_appointment"])
 def delete_appointment(appointment_id):
     """Delete completed appointments from schedule board."""
     appt = Appointment.query.get_or_404(appointment_id)
@@ -1247,3 +1377,27 @@ def delete_appointment(appointment_id):
 
     flash("Completed appointment deleted", "success")
     return redirect(url_for("ris_bp.schedule_board"))
+
+# ============================================================
+# PATCH — add these to Blueprints/ris/routes.py
+# ============================================================
+
+
+
+
+# 3. In _build_report_pdf, add this block just before:
+#        doc.build(story, onFirstPage=_draw_page, onLaterPages=_draw_page)
+#
+#    ── Addenda ─────────────────────────────────────────────────────────────
+#    addenda = list(report.addenda)
+#    if addenda:
+#        story.append(HRFlowable(width="100%", thickness=2, color=DIVIDER, spaceBefore=16, spaceAfter=8))
+#        section_title("Addenda")
+#        for idx, addendum in enumerate(addenda, start=1):
+#            story.append(Paragraph(
+#                f"Addendum {idx}  ·  {addendum.author_name or 'Unknown'}  ·  "
+#                f"{_format_cat_time(addendum.created_at)} (CAT)",
+#                style_label,
+#            ))
+#            story.append(Spacer(1, 4))
+#            body_block("", addendum.content)

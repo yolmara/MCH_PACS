@@ -69,7 +69,7 @@
                 <div><strong>Description:</strong> {{ study.description or 'N/A' }}</div>
             </div>
             <div class="ris-viewer-link">
-                <a href="{{ ohif_base_url }}/viewer?StudyInstanceUIDs={{ study.study_instance_uid|urlencode }}" target="_blank" class="btn btn-primary">
+                <a href="{{ url_for('pacs_bp.view_study', study_uid=study.study_instance_uid) }}" target="_blank" class="btn btn-primary">
                     Open Images in OHIF Viewer
                 </a>
             </div>

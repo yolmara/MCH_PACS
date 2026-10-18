@@ -13,5 +13,6 @@ from .activity_log import ActivityLog
 from .exam_order import ExamOrder
 from .radiology_report import RadiologyReport 
 from .appointment import Appointment
+from .report_addendum import ReportAddendum
 
-__all__ = ['db', 'Patient', 'Study', 'Series', 'Instance', 'Ward', 'Department', 'User', 'ActivityLog', 'ExamOrder', 'RadiologyReport', 'Appointment']
+__all__ = ['db', 'Patient', 'Study', 'Series', 'Instance', 'Ward', 'Department', 'User', 'ActivityLog', 'ExamOrder', 'RadiologyReport', 'Appointment', 'ReportAddendum']

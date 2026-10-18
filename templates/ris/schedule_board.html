@@ -9,6 +9,7 @@
         <h2>Scheduling Board</h2>
     </div>
 
+    {% if ris_permissions.create_appointment %}
     <div class="table-card schedule-create-card">
         <h3>Create Appointment</h3>
         <form method="POST" action="{{ url_for('ris_bp.create_appointment') }}" class="schedule-create-form">
@@ -70,6 +71,7 @@
             </div>
         </form>
     </div>
+    {% endif %}
 
     <div class="filters">
         <form method="GET" class="filter-form">
@@ -118,6 +120,7 @@
                     <td>{{ appt.status }}</td>
                     <td>
                         <div class="schedule-row-actions">
+                            {% if ris_permissions.update_appointment_status %}
                             <form method="POST" action="{{ url_for('ris_bp.update_appointment_status', appointment_id=appt.id) }}" class="inline-form">
                                 <input type="hidden" name="status" value="arrived">
                                 <button class="btn btn-sm btn-secondary">Arrive</button>
@@ -130,8 +133,9 @@
                                 <input type="hidden" name="status" value="completed">
                                 <button class="btn btn-sm btn-primary">Complete</button>
                             </form>
+                            {% endif %}
 
-                            {% if appt.status not in ['completed', 'cancelled', 'no_show'] %}
+                            {% if ris_permissions.reschedule_appointment and appt.status not in ['completed', 'cancelled', 'no_show'] %}
                             <form method="POST" action="{{ url_for('ris_bp.reschedule_appointment', appointment_id=appt.id) }}" class="reschedule-inline-form">
                                 <input type="datetime-local" name="scheduled_start" value="{{ appt.scheduled_start.strftime('%Y-%m-%dT%H:%M') }}" required>
                                 <input type="datetime-local" name="scheduled_end" value="{{ appt.scheduled_end.strftime('%Y-%m-%dT%H:%M') }}" required>
@@ -139,7 +143,7 @@
                             </form>
                             {% endif %}
 
-                            {% if appt.status == 'completed' %}
+                            {% if ris_permissions.delete_appointment and appt.status == 'completed' %}
                             <form method="POST" action="{{ url_for('ris_bp.delete_appointment', appointment_id=appt.id) }}" class="inline-form">
                                 <button class="btn btn-sm btn-danger" type="submit" onclick="return confirm('Delete this completed appointment?')">Delete</button>
                             </form>

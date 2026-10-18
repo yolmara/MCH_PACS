@@ -1,23 +1,31 @@
 {% set ris_path = request.path %}
 <nav class="ris-subnav" aria-label="RIS section navigation">
+    {% if ris_permissions.worklist %}
     <a href="{{ url_for('ris_bp.worklist') }}" class="{{ 'active' if ris_path.startswith('/ris/worklist') else '' }}">
         Worklist
     </a>
+    {% endif %}
+    {% if ris_permissions.list_draft_reports %}
     <a href="{{ url_for('ris_bp.list_draft_reports') }}" class="{{ 'active' if ris_path.startswith('/ris/reports/drafts') else '' }}">
         Draft Reports
         {% if ris_draft_count %}
             <span class="ris-subnav-badge">{{ ris_draft_count }}</span>
         {% endif %}
     </a>
-    {% if ris_has_saved_reports_endpoint %}
+    {% endif %}
+    {% if ris_has_saved_reports_endpoint and ris_permissions.list_saved_reports %}
         <a href="{{ url_for('ris_bp.list_saved_reports') }}" class="{{ 'active' if ris_path.startswith('/ris/reports/saved') or (ris_path.startswith('/ris/reports/') and not ris_path.startswith('/ris/reports/drafts') and not ris_path.startswith('/ris/reports/new')) else '' }}">
             Saved Reports
         </a>
     {% endif %}
+    {% if ris_permissions.schedule_board %}
     <a href="{{ url_for('ris_bp.schedule_board') }}" class="{{ 'active' if ris_path.startswith('/ris/schedule') else '' }}">
         Scheduling
     </a>
+    {% endif %}
+    {% if ris_permissions.list_orders %}
     <a href="{{ url_for('ris_bp.list_orders') }}" class="{{ 'active' if ris_path.startswith('/ris/orders') else '' }}">
         Orders
     </a>
+    {% endif %}
 </nav>

@@ -141,7 +141,7 @@
             </div>
         </div>
 
-        {% if order.report %}
+        {% if order.report and ris_permissions.view_report %}
         {% set linked_report = order.report | first %}
         <div class="order-section">
             <h3>Report</h3>
@@ -150,34 +150,34 @@
         {% endif %}
 
         <div class="order-actions">
-            {% if order.status in ['pending', 'scheduled'] %}
+            {% if ris_permissions.schedule_board and order.status in ['pending', 'scheduled'] %}
             <a href="{{ url_for('ris_bp.schedule_board', order_id=order.id) }}" class="btn btn-secondary">Schedule Appointment</a>
             {% endif %}
 
-            {% if order.status == 'pending' %}
+            {% if ris_permissions.update_order_status and order.status == 'pending' %}
             <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
                 <input type="hidden" name="status" value="scheduled">
                 <button type="submit" class="btn btn-secondary">Mark Scheduled</button>
             </form>
             {% endif %}
-            {% if order.status == 'scheduled' %}
+            {% if ris_permissions.update_order_status and order.status == 'scheduled' %}
             <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
                 <input type="hidden" name="status" value="in_progress">
                 <button type="submit" class="btn btn-primary">Start Exam</button>
             </form>
             {% endif %}
-            {% if order.status == 'in_progress' %}
+            {% if ris_permissions.update_order_status and order.status == 'in_progress' %}
             <form method="POST" action="{{ url_for('ris_bp.update_order_status', order_id=order.id) }}" class="inline-form">
                 <input type="hidden" name="status" value="completed">
                 <button type="submit" class="btn btn-primary">Mark Completed</button>
             </form>
             {% endif %}
-            {% if order.status in ['pending', 'scheduled', 'in_progress'] %}
+            {% if ris_permissions.cancel_order and order.status in ['pending', 'scheduled', 'in_progress'] %}
             <form method="POST" action="{{ url_for('ris_bp.cancel_order', order_id=order.id) }}" class="inline-form">
                 <button type="submit" class="btn btn-danger" onclick="return confirm('Cancel this order?')">Cancel Order</button>
             </form>
             {% endif %}
-            {% if session.get('role') == 'admin' and order.status == 'cancelled' and not order.appointments and not order.report %}
+            {% if ris_permissions.delete_order and order.status == 'cancelled' and not order.appointments and not order.report %}
             <form method="POST" action="{{ url_for('ris_bp.delete_order', order_id=order.id) }}" class="inline-form">
                 <button type="submit" class="btn btn-danger" onclick="return confirm('Delete this cancelled order permanently?')">Delete Order</button>
             </form>

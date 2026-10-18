@@ -33,8 +33,8 @@
             <a href="{{ url_for('patients_bp.patients_list') }}" class="{{ 'active' if current_path.startswith('/patients') else '' }}">Patients</a>
         {% endif %}
 
-        {% if session.get('role') in ['radiologist', 'admin'] %}
-            <a href="{{ url_for('ris_bp.worklist') }}" class="{{ 'active' if current_path.startswith('/ris') else '' }}">RIS</a>
+        {% if session.get('role') in ['radiologist', 'technician', 'clerk', 'admin'] %}
+            <a href="{{ url_for('ris_bp.list_orders') if session.get('role') == 'clerk' else url_for('ris_bp.worklist') }}" class="{{ 'active' if current_path.startswith('/ris') else '' }}">RIS</a>
         {% endif %}
 
         {% if session.get('role') == 'admin' %}

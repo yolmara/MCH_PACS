@@ -68,8 +68,10 @@
                     <td>{{ study.patient.ward.ward_name if study.patient.ward else 'N/A' }}</td>
                     <td>{{ instance_counts.get(study.id, 0) }}</td>
                     <td>
-                        <a href="{{ ohif_base_url }}/viewer?StudyInstanceUIDs={{ study.study_instance_uid|urlencode }}" class="btn-view btn-sm" target="_blank">View Images</a>
+                        <a href="{{ url_for('pacs_bp.view_study', study_uid=study.study_instance_uid) }}" class="btn-view btn-sm" target="_blank">View Images</a>
+                        {% if ris_permissions.edit_report %}
                         <a href="{{ url_for('ris_bp.create_report', study_id=study.id) }}" class="btn btn-sm btn-primary">Write Report</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% else %}

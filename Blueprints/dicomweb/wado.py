@@ -6,7 +6,7 @@ from models import db, Study, Series, Instance
 from dicom_utils import load_dicom, dicom_to_jpeg, ensure_patient_folder
 from pydicom.encaps import _generate_pixel_data_frame
 from pydicom.uid import UID
-from Blueprints.auth.routes import login_required
+from Blueprints.auth.routes import VIEWER_ROLES, login_required, role_required
 
 
 wado_bp = Blueprint("wado_bp", __name__)
@@ -26,6 +26,7 @@ def safe_send_file(path, mimetype, as_attachment=False, download_name=None):
 # -----------------------
 @wado_bp.route("/studies/<study_uid>/series/<series_uid>/instances/<instance_uid>", methods=["GET"])
 @login_required
+@role_required(*VIEWER_ROLES)
 def wado_get_instance(study_uid, series_uid, instance_uid):
     """
     Return the raw DICOM file for the given instance.
@@ -58,6 +59,7 @@ def wado_get_instance(study_uid, series_uid, instance_uid):
 # -----------------------
 @wado_bp.route("/studies/<study_uid>/series/<series_uid>/instances/<instance_uid>/rendered", methods=["GET"])
 @login_required
+@role_required(*VIEWER_ROLES)
 def wado_get_instance_rendered(study_uid, series_uid, instance_uid):
     """
     Return rendered JPEG for client consumption (OHIF can use this for thumbnails or rendered frame).
@@ -122,6 +124,7 @@ def wado_get_instance_rendered(study_uid, series_uid, instance_uid):
 # -----------------------
 @wado_bp.route("/wado", methods=["GET"])
 @login_required
+@role_required(*VIEWER_ROLES)
 def wado_uri():
     """
     Support WADO-URI style requests with query parameters:
@@ -173,6 +176,7 @@ def dataset_to_response(ds, filename=None):
 
 @wado_bp.route("/studies/<study_uid>/series/<series_uid>/instances/<instance_uid>/frames/<frame_number>", methods=["GET"])
 @login_required
+@role_required(*VIEWER_ROLES)
 def wado_get_frame(study_uid, series_uid, instance_uid, frame_number):
     series = Series.query.join(Study).filter(
         Study.study_instance_uid == study_uid,

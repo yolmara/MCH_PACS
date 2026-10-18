@@ -37,10 +37,12 @@
         </a>
         {% endif %}
 
-        <a href="{{ ohif_base_url }}/" class="action-card" target="_blank" rel="noopener">
+        {% if session.get('role') in ['admin', 'radiologist', 'technician'] %}
+        <a href="{{ url_for('dicom_bp.ohif_viewer') }}" class="action-card" target="_blank" rel="noopener">
             <span>🩻 DICOM Viewer</span>
             <small>Open OHIF viewer for study review</small>
         </a>
+        {% endif %}
 
 
         {% if session.get('role') in ['radiologist', 'technician', 'admin'] %}
@@ -57,7 +59,7 @@
         </a>
         {% endif %}
 
-        <a href="{{ url_for('ris_bp.worklist') }}" class="action-card">
+        <a href="{{ url_for('ris_bp.list_orders') if session.get('role') == 'clerk' else url_for('ris_bp.worklist') }}" class="action-card">
             <span>☢️ RIS Module</span>
             <small>Orders, reports and interpretation</small>
         </a>

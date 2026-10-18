@@ -220,8 +220,8 @@ async function loadStudies() {
 }
 
 function viewStudy(studyUID) {
-    const ohifBaseUrl = "{{ ohif_base_url }}";
-    window.open(`${ohifBaseUrl}/viewer?StudyInstanceUIDs=${encodeURIComponent(studyUID)}`, '_blank');
+    const viewerLaunchUrl = "{{ url_for('dicom_bp.ohif_viewer') }}";
+    window.open(`${viewerLaunchUrl}?StudyInstanceUIDs=${encodeURIComponent(studyUID)}`, '_blank');
 }
 
 function manageDepartments() {

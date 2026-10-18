@@ -76,7 +76,7 @@
             </div>
             <div class="form-group">
                 <label>Password *</label>
-                <input type="password" name="password" required minlength="6">
+                <input type="password" name="password" required minlength="8">
             </div>
             <div class="form-group">
                 <label>Full Name</label>
@@ -109,11 +109,11 @@
         <form id="resetPasswordForm" method="POST">
             <div class="form-group">
                 <label>New Password *</label>
-                <input type="password" name="new_password" required minlength="6">
+                <input type="password" name="new_password" required minlength="8">
             </div>
             <div class="form-group">
                 <label>Confirm Password *</label>
-                <input type="password" name="confirm_password" required minlength="6">
+                <input type="password" name="confirm_password" required minlength="8">
             </div>
             <button type="submit" class="btn btn-primary">Reset Password</button>
         </form>
@@ -121,6 +121,14 @@
 </div>
 
 <script>
+function validatePassword(password) {
+    if (password.length < 8) return 'Password must be at least 8 characters';
+    if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
+    if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Password must contain at least one special character';
+    return null;
+}
+
 function showAddUserModal() {
     document.getElementById('addUserModal').style.display = 'flex';
 }
@@ -129,11 +137,24 @@ function closeModal() {
     document.getElementById('addUserModal').style.display = 'none';
 }
 
+document.querySelector('#addUserModal form').addEventListener('submit', function(e) {
+    const pwd = this.querySelector('input[name="password"]').value;
+    const error = validatePassword(pwd);
+    if (error) { e.preventDefault(); alert(error); }
+});
+
+document.getElementById('resetPasswordForm').addEventListener('submit', function(e) {
+    const pwd = this.querySelector('input[name="new_password"]').value;
+    const confirm = this.querySelector('input[name="confirm_password"]').value;
+    const error = validatePassword(pwd);
+    if (error) { e.preventDefault(); alert(error); return; }
+    if (pwd !== confirm) { e.preventDefault(); alert('Passwords do not match'); }
+});
+
 function showResetPasswordModal(userId, username) {
     const modal = document.getElementById('resetPasswordModal');
     const form = document.getElementById('resetPasswordForm');
     const info = document.getElementById('resetPasswordUserInfo');
-
     form.action = `/auth/users/${userId}/reset-password`;
     info.textContent = `Reset password for user: ${username}`;
     modal.style.display = 'flex';
