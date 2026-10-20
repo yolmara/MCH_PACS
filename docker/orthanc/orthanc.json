@@ -11,7 +11,9 @@
   "MaximumStorageSize": 102400,
   "MaximumPatientCount": 0,
   "MaximumStorageMode": "Recycle",
-  "Plugins": [],
+  "Plugins": [
+    "/usr/share/orthanc/plugins"
+  ],
   "LuaScripts": ["/etc/orthanc/notify.lua"],
 
   "DicomWeb": {

@@ -47,3 +47,4 @@ typing_extensions==4.15.0
 urllib3==2.5.0
 utils==1.0.2
 Werkzeug==3.1.4
+gevent
