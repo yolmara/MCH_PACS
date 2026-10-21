@@ -8,7 +8,7 @@
     "admin": "change-me-orthanc-admin-password"
   },
   "StorageDirectory": "/var/lib/orthanc/db",
-  "MaximumStorageSize": 102400,
+  "MaximumStorageSize": 0,
   "MaximumPatientCount": 0,
   "MaximumStorageMode": "Recycle",
   "Plugins": [
