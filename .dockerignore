@@ -1,0 +1,6 @@
+static/uploads/
+incoming/
+venv/
+.git/
+__pycache__/
+*.pyc/
