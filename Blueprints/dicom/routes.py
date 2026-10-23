@@ -1,286 +1,344 @@
-from flask import Blueprint, render_template, request, redirect, jsonify, url_for, current_app
-from datetime import datetime
-import json
+from Blueprints.auth.routes import login_required
+from flask import (Blueprint, request, jsonify, render_template, redirect, current_app)
+from werkzeug.utils import secure_filename
+from dicom_utils.activity_logger import log_activity
+from models import db, Patient
 import os
-from io import BytesIO
 import httpx
 import pydicom
-from models import Study, Series, Instance, db
-from dicom_utils.activity_logger import log_activity
-from Blueprints.auth.routes import VIEWER_ROLES, login_required, role_required
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+
 from dicom_utils import (
+    load_dicom,
     extract_metadata,
     dicom_to_jpeg,
+    build_instance_path,
+    get_patient_folder,
     ensure_patient_folder,
-    upsert_patient,
-    upsert_study,
-    upsert_series,
-    upsert_instance,
-    PatientIdentityConflictError,
+    upsert_study, 
+    upsert_series, 
+    upsert_instance
 )
 
-dicom_bp = Blueprint("dicom_bp", __name__)
+upload_bp = Blueprint("upload_bp", __name__)
 
 
-@dicom_bp.route("/notify", methods=["POST"])
-def orthanc_notify():
-    expected_token = (os.environ.get("ORTHANC_NOTIFY_TOKEN") or "").strip()
-    if expected_token:
-        received_token = (request.headers.get("X-Orthanc-Token") or "").strip()
-        if received_token != expected_token:
-            return jsonify({"error": "Unauthorized notification"}), 401
-
-    payload = request.get_json(silent=True) or {}
-    instance_id = str(payload.get("instance_id") or payload.get("ID") or "").strip()
-    if not instance_id:
-        return jsonify({"error": "instance_id is required"}), 400
-
-    incoming_dir = os.path.join(current_app.root_path, "incoming")
-    os.makedirs(incoming_dir, exist_ok=True)
-    log_path = os.path.join(incoming_dir, "orthanc_notifications.log")
-
-    record = {
-        "received_at": datetime.utcnow().isoformat() + "Z",
-        "instance_id": instance_id,
-        "remote_addr": request.remote_addr,
-        "payload": payload,
-    }
-
-    try:
-        with open(log_path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, ensure_ascii=True) + "\n")
-    except OSError:
-        current_app.logger.exception("Failed to persist Orthanc notification")
-
-    current_app.logger.info("Orthanc notification received for instance %s", instance_id)
-    log_activity(
-        "orthanc_notify",
-        resource=f"orthanc_instance_{instance_id}",
-        details=f"Received Orthanc callback from {request.remote_addr}",
-    )
-
-    ingest_result = _ingest_orthanc_instance(instance_id)
-    return jsonify({"status": "accepted", "instance_id": instance_id, "ingest": ingest_result}), 202
+class PatientIdentityConflictError(ValueError):
+    """Raised when uploaded files conflict with an existing patient identity."""
 
 
-def _resolve_instance_file_path(path):
-    if not path:
+class InvalidDICOMInstanceError(ValueError):
+    """Raised when a file is not a storable DICOM instance for this workflow."""
+
+
+def _norm(value):
+    if value is None:
         return None
-    return path if os.path.isabs(path) else os.path.join(current_app.root_path, path)
+    text = str(value).strip()
+    return text.lower() if text else None
 
 
-def _orthanc_client():
+def _assert_patient_identity_consistent(patient_id, name=None, sex=None, dob=None):
+    existing = Patient.query.filter_by(patient_id=patient_id).first()
+    if not existing:
+        return
+
+    conflicts = []
+    existing_name, incoming_name = _norm(existing.patient_name), _norm(name)
+    if existing_name and incoming_name and existing_name != incoming_name:
+        conflicts.append(f"name existing='{existing.patient_name}' incoming='{name}'")
+
+    existing_sex, incoming_sex = _norm(existing.patient_sex), _norm(sex)
+    if existing_sex and incoming_sex and existing_sex != incoming_sex:
+        conflicts.append(f"sex existing='{existing.patient_sex}' incoming='{sex}'")
+
+    existing_dob, incoming_dob = _norm(existing.patient_dob), _norm(dob)
+    if existing_dob and incoming_dob and existing_dob != incoming_dob:
+        conflicts.append(f"dob existing='{existing.patient_dob}' incoming='{dob}'")
+
+    if conflicts:
+        raise PatientIdentityConflictError(
+            f"PatientID '{patient_id}' already exists with different demographics: " + "; ".join(conflicts)
+        )
+
+
+def _assert_required_instance_uids(dcm):
+    required = ("StudyInstanceUID", "SeriesInstanceUID", "SOPInstanceUID")
+    missing = [field for field in required if not getattr(dcm, field, None)]
+    if missing:
+        missing_list = ", ".join(missing)
+        raise InvalidDICOMInstanceError(
+            f"Not a storable image instance (missing {missing_list}). "
+            "Select the folder containing actual DICOM image slices, not viewer/support files."
+        )
+
+
+def _upsert_patient_local(patient_id, name=None, sex=None, dob=None):
+    patient = Patient.query.filter_by(patient_id=patient_id).first()
+    if not patient:
+        patient = Patient(
+            patient_id=patient_id,
+            patient_name=name,
+            patient_sex=sex,
+            patient_dob=dob,
+        )
+        db.session.add(patient)
+        db.session.flush()
+        return patient
+
+    if name and not patient.patient_name:
+        patient.patient_name = name
+    if sex and not patient.patient_sex:
+        patient.patient_sex = sex
+    if dob and not patient.patient_dob:
+        patient.patient_dob = dob
+    return patient
+
+
+def _push_to_orthanc(paths):
+    """
+    Push saved DICOM files into Orthanc so OHIF can serve them.
+
+    Never raises: a failure here must not break the upload itself.
+    Returns (pushed_count, sample_errors) with at most 5 sample errors.
+    """
+    if not paths:
+        return 0, []
+
     base_url = current_app.config.get("ORTHANC_API_URL", "http://orthanc:8042").rstrip("/")
     username = (current_app.config.get("ORTHANC_ADMIN_USERNAME") or "").strip()
     password = (current_app.config.get("ORTHANC_ADMIN_PASSWORD") or "").strip()
     auth = (username, password) if username and password else None
-    return httpx.Client(base_url=base_url, auth=auth, timeout=30.0)
 
-
-def _ingest_orthanc_instance(instance_id):
-    if not current_app.config.get("ORTHANC_INGEST_ENABLED", True):
-        return {"status": "skipped", "reason": "ingest_disabled"}
-
-    try:
-        with _orthanc_client() as client:
-            resp = client.get(f"/instances/{instance_id}/file")
+    def push_one(client, path):
+        try:
+            with open(path, "rb") as fh:
+                resp = client.post(
+                    "/instances",
+                    content=fh.read(),
+                    headers={"Content-Type": "application/dicom"},
+                )
+            if resp.status_code == 401:
+                return "Orthanc rejected the credentials (check ORTHANC_ADMIN_PASSWORD)"
             resp.raise_for_status()
-            content = resp.content
-    except Exception as exc:
-        current_app.logger.exception("Failed to fetch Orthanc instance %s", instance_id)
-        return {"status": "error", "error": str(exc)}
+            return None
+        except Exception as exc:  # noqa: BLE001
+            return str(exc)
 
-    if not content:
-        return {"status": "error", "error": "empty_instance_file"}
-
+    failed = 0
+    errors = []
     try:
-        ds = pydicom.dcmread(BytesIO(content), force=True)
-    except Exception as exc:
-        current_app.logger.exception("Failed to parse DICOM for Orthanc instance %s", instance_id)
-        return {"status": "error", "error": f"parse_failed: {exc}"}
+        with httpx.Client(base_url=base_url, auth=auth, timeout=120.0) as client:
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                for path, err in pool.map(lambda p: (p, push_one(client, p)), paths):
+                    if err:
+                        failed += 1
+                        if len(errors) < 5:
+                            errors.append({"file": os.path.basename(path), "error": err})
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Orthanc push failed")
+        return 0, [{"file": "*", "error": str(exc)}]
 
-    meta = extract_metadata(ds)
-    missing = [key for key in ("StudyInstanceUID", "SeriesInstanceUID", "SOPInstanceUID") if not meta.get(key)]
-    if missing:
-        return {"status": "error", "error": f"missing_uids: {', '.join(missing)}"}
+    return len(paths) - failed, errors
 
-    existing = Instance.query.filter_by(sop_instance_uid=meta["SOPInstanceUID"]).first()
-    if existing:
-        existing_path = _resolve_instance_file_path(existing.file_path)
-        if existing_path and os.path.exists(existing_path):
-            return {"status": "skipped", "reason": "already_ingested"}
 
-    patient_id = str(getattr(ds, "PatientID", "") or "").strip()
+@upload_bp.route("/folder", methods=["GET"])
+@login_required
+def upload_folder_page():
+    return render_template("upload_folder.html")
+
+
+@upload_bp.route("/folder", methods=["POST"])
+@login_required
+def upload_folder():
+    """
+    Handles uploading a folder of DICOM files.
+    Each uploaded folder belongs to a patient.
+    """
+
+    if "files" not in request.files:
+        return jsonify({"error": "No files uploaded"}), 400
+
+    files = request.files.getlist("files")
+    patient_id = (request.form.get("patient_id") or "").strip()
+    ward_id = request.form.get("ward_id")
+
     if not patient_id:
-        seed = meta.get("StudyInstanceUID") or instance_id
-        patient_id = f"UNKNOWN_{seed[:12]}"
+        return jsonify({"error": "patient_id is required"}), 400
+    
+    if not ward_id:
+        return jsonify({"error": "ward_id is required"}), 400
 
-    patient_name = str(meta.get("PatientName")) if meta.get("PatientName") else None
-    patient_sex = str(meta.get("PatientSex")) if meta.get("PatientSex") else None
-    patient_dob = str(meta.get("PatientBirthDate")) if meta.get("PatientBirthDate") else None
-
+    # Ensure patient directory exists
     patient_dir = ensure_patient_folder(patient_id)
-    filename = f"{meta['SOPInstanceUID']}.dcm"
-    file_path = os.path.join(patient_dir, filename)
-    if not os.path.exists(file_path):
+
+    created_files = []
+    saved_paths = []
+    errors = []
+    source_dicom_patient_id = None
+
+    for file in files:
+        # FIX: Ensure .dcm extension
+        filename = secure_filename(file.filename)
+        if not filename.lower().endswith('.dcm'):
+            filename = f"{filename}.dcm"
+        
+        temp_path = os.path.join(patient_dir, filename)
+        file.save(temp_path)
+
         try:
-            with open(file_path, "wb") as handle:
-                handle.write(content)
-        except OSError as exc:
-            current_app.logger.exception("Failed to write Orthanc instance to disk")
-            return {"status": "error", "error": f"write_failed: {exc}"}
+            dcm = load_dicom(temp_path)
+            _assert_required_instance_uids(dcm)
+            meta = extract_metadata(dcm)
 
-    try:
-        patient = upsert_patient(
-            patient_id=patient_id,
-            name=patient_name,
-            sex=patient_sex,
-            dob=patient_dob,
-        )
-    except PatientIdentityConflictError as exc:
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except OSError:
-                pass
-        return {"status": "error", "error": f"patient_conflict: {exc}"}
+            dicom_patient_id = str(getattr(dcm, "PatientID", "")).strip()
+            if dicom_patient_id:
+                if source_dicom_patient_id and dicom_patient_id != source_dicom_patient_id:
+                    raise PatientIdentityConflictError(
+                        f"Mixed DICOM PatientID values in one folder: "
+                        f"'{source_dicom_patient_id}' and '{dicom_patient_id}'. "
+                        "Upload one patient per folder."
+                    )
+                source_dicom_patient_id = dicom_patient_id
 
-    try:
-        study = upsert_study(
-            patient=patient,
-            study_uid=meta["StudyInstanceUID"],
-            study_date=meta.get("StudyDate"),
-            description=meta.get("StudyDescription"),
-        )
-        series = upsert_series(
-            study=study,
-            series_uid=meta["SeriesInstanceUID"],
-            modality=meta.get("Modality"),
-        )
+            # Safe conversion
+            patient_name = str(meta.get("PatientName")) if meta.get("PatientName") else None
+            patient_sex = str(meta.get("PatientSex")) if meta.get("PatientSex") else None
+            patient_dob = str(meta.get("PatientBirthDate")) if meta.get("PatientBirthDate") else None
+            study_desc = str(meta.get("StudyDescription")) if meta.get("StudyDescription") else None
 
-        preview_path = None
-        try:
-            preview_path = dicom_to_jpeg(
-                dcm=ds,
-                output_dir=os.path.join(patient_dir, "previews"),
-                instance_uid=meta["SOPInstanceUID"],
+            _assert_patient_identity_consistent(
+                patient_id=patient_id,
+                name=patient_name,
+                sex=patient_sex,
+                dob=patient_dob,
             )
-        except Exception:
-            preview_path = None
 
-        instance = upsert_instance(
-            series=series,
-            sop_uid=meta["SOPInstanceUID"],
-            file_path=file_path,
-            preview_path=preview_path,
-        )
-    except Exception as exc:
-        db.session.rollback()
-        current_app.logger.exception("Failed to persist Orthanc instance %s", instance_id)
-        if os.path.exists(file_path):
+            # Upsert patient
+            patient = _upsert_patient_local(
+                patient_id=patient_id,
+                name=patient_name,
+                sex=patient_sex,
+                dob=patient_dob
+            )
+            
+            # Assign ward to patient
+            patient.ward_id = int(ward_id)
+
+            # Upsert study
+            study = upsert_study(
+                patient=patient,
+                study_uid=meta["StudyInstanceUID"],
+                study_date=meta.get("StudyDate"),
+                description=study_desc
+            )
+
+            # Upsert series
+            series = upsert_series(
+                study=study,
+                series_uid=meta["SeriesInstanceUID"],
+                modality=meta.get("Modality")
+            )
+
+            # Generate preview
+            preview_path = None
             try:
-                os.remove(file_path)
+                preview_path = dicom_to_jpeg(
+                    dcm=dcm,
+                    output_dir=os.path.join(patient_dir, "previews"),
+                    instance_uid=meta["SOPInstanceUID"]
+                )
+            except Exception:
+                # Keep storing valid instances even if preview conversion fails.
+                preview_path = None
+
+            # Upsert instance
+            instance = upsert_instance(
+                series=series,
+                sop_uid=meta["SOPInstanceUID"],
+                file_path=temp_path,
+                preview_path=preview_path
+            )
+
+            created_files.append({
+                "file": filename,
+                "study_uid": study.study_instance_uid,
+                "series_uid": series.series_instance_uid,
+                "instance_uid": instance.sop_instance_uid,
+                "preview": preview_path
+            })
+            saved_paths.append(temp_path)
+
+        except PatientIdentityConflictError as e:
+            db.session.rollback()
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
             except OSError:
                 pass
-        return {"status": "error", "error": f"db_failed: {exc}"}
-
-    log_activity(
-        "orthanc_ingest",
-        resource=f"instance_{instance.sop_instance_uid}",
-        details=f"Ingested Orthanc instance {instance_id} into PACS storage",
-    )
-
-    return {
-        "status": "ingested",
-        "study_uid": study.study_instance_uid,
-        "series_uid": series.series_instance_uid,
-        "instance_uid": instance.sop_instance_uid,
-    }
-
-
-########## Viewer Route ##########
-##################################
-@dicom_bp.route("/mch-ohif-viewer")
-@login_required
-@role_required(*VIEWER_ROLES)
-def ohif_viewer():
-    """
-    Launches the OHIF viewer with a given StudyInstanceUID.
-    Frontend calls like:
-    /viewer?StudyInstanceUID=1.2.840...
-    """
-    study_uid = request.args.get("StudyInstanceUID") or request.args.get("StudyInstanceUIDs")
-    ohif_base_url = current_app.config.get("OHIF_VIEWER_URL", "http://localhost:8081/ohif").rstrip("/")
-
-    # Dashboard access (no study selected yet): open OHIF landing page.
-    if not study_uid:
-        return redirect(f"{ohif_base_url}/")
-
-    # Study-specific launch (OHIF uses /viewer route)
-    return redirect(f"{ohif_base_url}/viewer?StudyInstanceUIDs={study_uid}")
-
-
-######### Studies Route ##########
-##################################
-@dicom_bp.route("/dicom/studies/<study_uid>")
-@login_required
-@role_required(*VIEWER_ROLES)
-def ohif_study_json(study_uid):
-
-    study = Study.query.filter_by(study_instance_uid=study_uid).first()
-
-    if not study:
-        return jsonify({"error": "Study not found"}), 404
-
-    series_list = []
-
-    for series in study.series:
-        instance_list = []
-
-        for instance in series.instances:
-            instance_list.append({
-                "SOPInstanceUID": instance.sop_instance_uid,
-                "url": instance.file_path  # OHIF fetches raw DICOM here
+            errors.append({
+                "file": filename,
+                "error": str(e),
+                "type": "patient_identity_conflict"
+            })
+        except InvalidDICOMInstanceError as e:
+            db.session.rollback()
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except OSError:
+                pass
+            errors.append({
+                "file": filename,
+                "error": str(e),
+                "type": "invalid_dicom_instance"
+            })
+        except Exception as e:
+            db.session.rollback()
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except OSError:
+                pass
+            errors.append({
+                "file": filename,
+                "error": str(e),
+                "type": "upload_processing_error"
             })
 
-        series_list.append({
-            "SeriesInstanceUID": series.series_instance_uid,
-            "Instances": instance_list
-        })
+    db.session.commit()
 
-    response = {
-        "StudyInstanceUID": study.study_instance_uid,
-        "Series": series_list
-    }
+    # Push to Orthanc only AFTER the commit. Orthanc calls /dicom/notify for every
+    # instance it stores, and that callback must be able to see the rows saved above
+    # (otherwise ingest would write a second copy of each file).
+    pushed, push_errors = _push_to_orthanc(saved_paths)
+    if push_errors:
+        current_app.logger.warning(
+            "Orthanc push: %s of %s files failed, e.g. %s",
+            len(saved_paths) - pushed, len(saved_paths), push_errors[0],
+        )
+    
+    # Log activity
+    log_activity(
+        'upload_folder', 
+        resource=f'patient_{patient_id}',
+        details=(
+            f'Uploaded {len(created_files)} files to ward {ward_id}. '
+            f'Errors: {len(errors)}. Source DICOM PatientID: {source_dicom_patient_id or "unknown"}. '
+            f'Pushed to Orthanc: {pushed}/{len(saved_paths)}'
+        )
+    )
 
-    return jsonify(response)
-
-
-def filesystem_path_to_url(fs_path):
-    """
-    If your DICOMs are saved under: static/uploads/...
-    and inst.file_path stores the absolute or relative filesystem path,
-    convert it to a URL that the browser can request.
-    """
-    # If stored absolute path, make it relative to your Flask static folder
-    # Example: /app/static/uploads/patients/123/.. -> uploads/patients/123/..
-    static_folder = current_app.static_folder  # typically "<repo>/static"
-    fs_path = os.path.abspath(fs_path)
-
-    # If file is inside static folder, build url_for('static', filename=...)
-    if fs_path.startswith(os.path.abspath(static_folder)):
-        rel_path = os.path.relpath(fs_path, static_folder).replace(os.path.sep, "/")
-        return url_for('static', filename=rel_path, _external=False)
-
-    # If file is outside static, consider creating a view to serve it (not recommended)
-    # For now return None so upstream can handle it
-    return None
-
-@dicom_bp.route("/instances/<int:instance_id>/file")
-@login_required
-@role_required(*VIEWER_ROLES)
-def serve_instance_file(instance_id):
-    inst = Instance.query.get(instance_id)
-    if not inst:
-        return "Not found", 404
-    return current_app.send_static_file(os.path.relpath(inst.file_path, current_app.static_folder))
+    return jsonify({
+        "message": "Folder processed",
+        "created": created_files,
+        "errors": errors,
+        "patient_id": patient_id,
+        "ward_id": ward_id,
+        "orthanc": {
+            "pushed": pushed,
+            "failed": len(saved_paths) - pushed,
+            "errors": push_errors,
+        },
+    })
