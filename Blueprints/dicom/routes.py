@@ -35,31 +35,17 @@ def orthanc_notify():
     if not instance_id:
         return jsonify({"error": "instance_id is required"}), 400
 
-    incoming_dir = os.path.join(current_app.root_path, "incoming")
-    os.makedirs(incoming_dir, exist_ok=True)
-    log_path = os.path.join(incoming_dir, "orthanc_notifications.log")
-
-    record = {
-        "received_at": datetime.utcnow().isoformat() + "Z",
-        "instance_id": instance_id,
-        "remote_addr": request.remote_addr,
-        "payload": payload,
-    }
-
-    try:
-        with open(log_path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, ensure_ascii=True) + "\n")
-    except OSError:
-        current_app.logger.exception("Failed to persist Orthanc notification")
-
-    current_app.logger.info("Orthanc notification received for instance %s", instance_id)
-    log_activity(
-        "orthanc_notify",
-        resource=f"orthanc_instance_{instance_id}",
-        details=f"Received Orthanc callback from {request.remote_addr}",
-    )
+    # Orthanc sends one notification per stored instance (500+ for a single CT).
+    # Writing a log-file line and an activity-log row for each one buries real user
+    # actions, so only failures are reported (in the container log) and ingest logs
+    # one activity entry per NEW study instead.
+    current_app.logger.debug("Orthanc notification received for instance %s", instance_id)
 
     ingest_result = _ingest_orthanc_instance(instance_id)
+    if ingest_result.get("status") == "error":
+        current_app.logger.warning(
+            "Orthanc ingest failed for instance %s: %s", instance_id, ingest_result.get("error")
+        )
     return jsonify({"status": "accepted", "instance_id": instance_id, "ingest": ingest_result}), 202
 
 
@@ -146,6 +132,11 @@ def _ingest_orthanc_instance(instance_id):
         return {"status": "error", "error": f"patient_conflict: {exc}"}
 
     try:
+        # Remember whether this study is new, so we log once per study, not per slice.
+        is_new_study = (
+            Study.query.filter_by(study_instance_uid=meta["StudyInstanceUID"]).first() is None
+        )
+
         study = upsert_study(
             patient=patient,
             study_uid=meta["StudyInstanceUID"],
@@ -184,11 +175,12 @@ def _ingest_orthanc_instance(instance_id):
                 pass
         return {"status": "error", "error": f"db_failed: {exc}"}
 
-    log_activity(
-        "orthanc_ingest",
-        resource=f"instance_{instance.sop_instance_uid}",
-        details=f"Ingested Orthanc instance {instance_id} into PACS storage",
-    )
+    if is_new_study:
+        log_activity(
+            "orthanc_ingest",
+            resource=f"study_{study.study_instance_uid}",
+            details=f"New study received from Orthanc (patient {patient_id})",
+        )
 
     return {
         "status": "ingested",

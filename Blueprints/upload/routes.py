@@ -1,10 +1,12 @@
 from Blueprints.auth.routes import login_required
-from flask import (Blueprint, request, jsonify, render_template, redirect)
+from flask import (Blueprint, request, jsonify, render_template, redirect, current_app)
 from werkzeug.utils import secure_filename
 from dicom_utils.activity_logger import log_activity
 from models import db, Patient
 import os
+import httpx
 import pydicom
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from dicom_utils import (
@@ -93,6 +95,54 @@ def _upsert_patient_local(patient_id, name=None, sex=None, dob=None):
         patient.patient_dob = dob
     return patient
 
+
+def _push_to_orthanc(paths):
+    """
+    Push saved DICOM files into Orthanc so OHIF can serve them.
+
+    Never raises: a failure here must not break the upload itself.
+    Returns (pushed_count, sample_errors) with at most 5 sample errors.
+    """
+    if not paths:
+        return 0, []
+
+    base_url = current_app.config.get("ORTHANC_API_URL", "http://orthanc:8042").rstrip("/")
+    username = (current_app.config.get("ORTHANC_ADMIN_USERNAME") or "").strip()
+    password = (current_app.config.get("ORTHANC_ADMIN_PASSWORD") or "").strip()
+    auth = (username, password) if username and password else None
+
+    def push_one(client, path):
+        try:
+            with open(path, "rb") as fh:
+                resp = client.post(
+                    "/instances",
+                    content=fh.read(),
+                    headers={"Content-Type": "application/dicom"},
+                )
+            if resp.status_code == 401:
+                return "Orthanc rejected the credentials (check ORTHANC_ADMIN_PASSWORD)"
+            resp.raise_for_status()
+            return None
+        except Exception as exc:  # noqa: BLE001
+            return str(exc)
+
+    failed = 0
+    errors = []
+    try:
+        with httpx.Client(base_url=base_url, auth=auth, timeout=120.0) as client:
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                for path, err in pool.map(lambda p: (p, push_one(client, p)), paths):
+                    if err:
+                        failed += 1
+                        if len(errors) < 5:
+                            errors.append({"file": os.path.basename(path), "error": err})
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Orthanc push failed")
+        return 0, [{"file": "*", "error": str(exc)}]
+
+    return len(paths) - failed, errors
+
+
 @upload_bp.route("/folder", methods=["GET"])
 @login_required
 def upload_folder_page():
@@ -124,6 +174,7 @@ def upload_folder():
     patient_dir = ensure_patient_folder(patient_id)
 
     created_files = []
+    saved_paths = []
     errors = []
     source_dicom_patient_id = None
 
@@ -217,6 +268,7 @@ def upload_folder():
                 "instance_uid": instance.sop_instance_uid,
                 "preview": preview_path
             })
+            saved_paths.append(temp_path)
 
         except PatientIdentityConflictError as e:
             db.session.rollback()
@@ -256,6 +308,16 @@ def upload_folder():
             })
 
     db.session.commit()
+
+    # Push to Orthanc only AFTER the commit. Orthanc calls /dicom/notify for every
+    # instance it stores, and that callback must be able to see the rows saved above
+    # (otherwise ingest would write a second copy of each file).
+    pushed, push_errors = _push_to_orthanc(saved_paths)
+    if push_errors:
+        current_app.logger.warning(
+            "Orthanc push: %s of %s files failed, e.g. %s",
+            len(saved_paths) - pushed, len(saved_paths), push_errors[0],
+        )
     
     # Log activity
     log_activity(
@@ -263,7 +325,8 @@ def upload_folder():
         resource=f'patient_{patient_id}',
         details=(
             f'Uploaded {len(created_files)} files to ward {ward_id}. '
-            f'Errors: {len(errors)}. Source DICOM PatientID: {source_dicom_patient_id or "unknown"}'
+            f'Errors: {len(errors)}. Source DICOM PatientID: {source_dicom_patient_id or "unknown"}. '
+            f'Pushed to Orthanc: {pushed}/{len(saved_paths)}'
         )
     )
 
@@ -272,5 +335,10 @@ def upload_folder():
         "created": created_files,
         "errors": errors,
         "patient_id": patient_id,
-        "ward_id": ward_id
+        "ward_id": ward_id,
+        "orthanc": {
+            "pushed": pushed,
+            "failed": len(saved_paths) - pushed,
+            "errors": push_errors,
+        },
     })
