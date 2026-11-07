@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, jsonify, url_fo
 from datetime import datetime
 import json
 import os
+import threading
 from io import BytesIO
 import httpx
 import pydicom
@@ -31,6 +32,12 @@ def orthanc_notify():
             return jsonify({"error": "Unauthorized notification"}), 401
 
     payload = request.get_json(silent=True) or {}
+
+    # New style: Orthanc sends one notification per study, once the study is stable.
+    study_id = str(payload.get("study_id") or "").strip()
+    if study_id:
+        return _accept_study_notification(study_id)
+
     instance_id = str(payload.get("instance_id") or payload.get("ID") or "").strip()
     if not instance_id:
         return jsonify({"error": "instance_id is required"}), 400
@@ -47,6 +54,77 @@ def orthanc_notify():
             "Orthanc ingest failed for instance %s: %s", instance_id, ingest_result.get("error")
         )
     return jsonify({"status": "accepted", "instance_id": instance_id, "ingest": ingest_result}), 202
+
+
+_studies_in_progress = set()
+_studies_lock = threading.Lock()
+
+
+def _accept_study_notification(study_id):
+    """Acknowledge Orthanc at once and ingest the whole study in the background."""
+    with _studies_lock:
+        if study_id in _studies_in_progress:
+            return jsonify({"status": "accepted", "study_id": study_id, "ingest": "already_running"}), 202
+        _studies_in_progress.add(study_id)
+
+    app = current_app._get_current_object()
+    threading.Thread(
+        target=_ingest_orthanc_study,
+        args=(app, study_id, request.remote_addr),
+        daemon=True,
+    ).start()
+    return jsonify({"status": "accepted", "study_id": study_id}), 202
+
+
+def _ingest_orthanc_study(app, study_id, remote_addr):
+    """Ingest every instance of one Orthanc study. Runs in a background thread."""
+    counts = {}
+    try:
+        # log_activity() reads the request and session, so give this thread a request context.
+        with app.test_request_context(
+            "/dicom/notify", method="POST", environ_base={"REMOTE_ADDR": remote_addr or "127.0.0.1"}
+        ):
+            if not app.config.get("ORTHANC_INGEST_ENABLED", True):
+                return
+            try:
+                with _orthanc_client() as client:
+                    resp = client.get(f"/studies/{study_id}/instances")
+                    resp.raise_for_status()
+                    items = resp.json()
+            except Exception:
+                app.logger.exception("Could not list instances of Orthanc study %s", study_id)
+                return
+
+            for item in items:
+                instance_id = item["ID"] if isinstance(item, dict) else item
+                try:
+                    status = _ingest_orthanc_instance(instance_id).get("status", "error")
+                except Exception:
+                    db.session.rollback()
+                    app.logger.exception("Ingest crashed for Orthanc instance %s", instance_id)
+                    status = "error"
+                counts[status] = counts.get(status, 0) + 1
+
+            print(f"[orthanc ingest] study {study_id} processed: {counts}", flush=True)
+    except Exception:
+        app.logger.exception("Orthanc study ingest crashed for %s", study_id)
+    finally:
+        with _studies_lock:
+            _studies_in_progress.discard(study_id)
+
+
+def _already_ingested(client, instance_id):
+    """True when Flask already has this instance (row and file). Asks Orthanc only for a small JSON reply."""
+    resp = client.get(f"/instances/{instance_id}")
+    resp.raise_for_status()
+    sop_uid = (resp.json().get("MainDicomTags") or {}).get("SOPInstanceUID")
+    if not sop_uid:
+        return False
+    existing = Instance.query.filter_by(sop_instance_uid=sop_uid).first()
+    if not existing:
+        return False
+    existing_path = _resolve_instance_file_path(existing.file_path)
+    return bool(existing_path and os.path.exists(existing_path))
 
 
 def _resolve_instance_file_path(path):
@@ -69,6 +147,8 @@ def _ingest_orthanc_instance(instance_id):
 
     try:
         with _orthanc_client() as client:
+            if _already_ingested(client, instance_id):
+                return {"status": "skipped", "reason": "already_ingested"}
             resp = client.get(f"/instances/{instance_id}/file")
             resp.raise_for_status()
             content = resp.content
